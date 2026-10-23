@@ -1,0 +1,43 @@
+"""Inline mode: type `@bot 3000 такси` in any chat's input field to post an expense."""
+
+import hashlib
+
+from aiogram import Router
+from aiogram.types import (
+    InlineQuery,
+    InlineQueryResultArticle,
+    InlineQueryResultsButton,
+    InputTextMessageContent,
+)
+
+from splitmate import texts
+from splitmate.handlers.group import INLINE_PREFIX
+from splitmate.money import fmt_money, parse_amount
+
+router = Router(name="inline")
+
+
+def plain_amount(minor: int) -> str:
+    """125050 -> '1250,50': a form parse_amount reads back unambiguously."""
+    whole, frac = divmod(minor, 100)
+    return f"{whole},{frac:02d}" if frac else str(whole)
+
+
+@router.inline_query()
+async def inline_expense(query: InlineQuery) -> None:
+    help_button = InlineQueryResultsButton(text=texts.INLINE_HELP_BUTTON, start_parameter="help")
+    parsed = parse_amount(query.query)
+    if parsed is None:
+        await query.answer([], cache_time=0, is_personal=True, button=help_button)
+        return
+    amount, description = parsed
+    message = f"{INLINE_PREFIX}{plain_amount(amount)} {description}".strip()
+    result = InlineQueryResultArticle(
+        id=hashlib.md5(message.encode()).hexdigest(),
+        title=texts.INLINE_TITLE.format(amount=fmt_money(amount, "").strip()),
+        description=texts.INLINE_DESCRIPTION.format(
+            description=f"{description}. " if description else ""
+        ),
+        input_message_content=InputTextMessageContent(message_text=message),
+    )
+    await query.answer([result], cache_time=0, is_personal=True, button=help_button)

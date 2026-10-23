@@ -7,7 +7,7 @@ All bots share one core (config, database, logging, middlewares) and run with a 
 |---|---|---|
 | 💈 **[SlotBook](#-slotbook)** · [@slotbook_nl_bot](https://t.me/slotbook_nl_bot) | Online booking for barbers, nail masters, tutors | 🟢 MVP |
 | 🛡 **ChatGuard AI** · [@chatguard_nl_bot](https://t.me/chatguard_nl_bot) | AI anti-spam moderator for group chats | 🔜 Planned |
-| 💸 **SplitMate** · [@splitmate_nl_bot](https://t.me/splitmate_nl_bot) | "Who owes whom" for trips and shared purchases, right in the group chat | 🔜 Planned |
+| 💸 **[SplitMate](#-splitmate)** · [@splitmate_nl_bot](https://t.me/splitmate_nl_bot) | "Who owes whom" for trips and shared purchases, right in the group chat | 🟢 MVP |
 
 **Stack:** Python 3.14 · aiogram 3 · SQLAlchemy 2 (async) · PostgreSQL · Redis · Docker · pytest · GitHub Actions
 
@@ -72,9 +72,36 @@ slotbook/
   reminders.py      # background jobs: reminders, releasing unpaid holds
   migrations/       # Alembic revisions
   keyboards.py, texts.py
+splitmate/
+  money.py          # pure money math: parse, split, balances, settle-up
+  repo.py           # all DB queries
+  handlers/         # group.py, inline.py, private.py
+  migrations/       # Alembic revisions
 tests/              # pytest
 docker-compose.yml  # Postgres, Redis and the bots
 ```
+
+---
+
+## 💸 SplitMate
+
+Trips, flatmates, a birthday gift: someone always pays, and nobody remembers who owes what.
+Apps like Splitwise need everyone to install them, so in practice nobody does. SplitMate lives in the
+group chat that already exists.
+
+### Features
+- **Add expenses in two ways:** `/add 3000 такси` or straight from the input field with inline mode: `@splitmate_nl_bot 3000 такси`
+- Split equally between everyone who pressed **🙋 Я участвую**; the payer can pick who took part with toggle buttons
+- **`/balance`** shows each person's balance and the **minimal set of transfers** to settle up
+- One tap marks a debt as returned; only the payer or the receiver can confirm it
+- History, per-chat currency, delete your own expenses
+
+### Engineering details
+- Money is stored in **integer minor units** (kopecks), never floats; equal splits distribute the remainder so shares always add up exactly
+- **Settle-up algorithm** ([`splitmate/money.py`](splitmate/money.py)): greedy matching of the largest debtor with the largest creditor, at most *n − 1* transfers
+- **Inline mode without knowing the chat:** Telegram doesn't tell the bot where an inline result was sent, so the bot records the expense when it sees the message posted *via itself* in a group (works even with privacy mode on)
+- Settling uses the **current** balance, not the amount baked into an old button, so stale buttons can't create wrong records
+- Pure functions covered by unit tests; DB logic checked against Postgres
 
 ---
 
@@ -87,6 +114,7 @@ docker-compose.yml  # Postgres, Redis and the bots
    ```
    - `SLOTBOOK_TOKEN`: the token from BotFather
    - `SLOTBOOK_ADMIN_IDS`: your Telegram user ID (ask [@userinfobot](https://t.me/userinfobot))
+   - `SPLITMATE_TOKEN`: the token of the second bot; enable inline mode for it in BotFather (`/setinline`)
 3. Run everything:
    ```bash
    docker compose up -d --build
@@ -121,7 +149,8 @@ ruff check .
 - [x] SlotBook: prepayment via Telegram Stars to reduce no-shows
 - [ ] SlotBook: Google Calendar sync
 - [ ] ChatGuard AI: LLM-based spam detection with explanations for admins
-- [ ] SplitMate: inline expense entry, receipt photo recognition, minimal settle-up transfers
+- [x] SplitMate: inline expense entry, minimal settle-up transfers
+- [ ] SplitMate Pro (Telegram Stars): receipt photo recognition, export to Excel, unequal splits
 - [ ] Webhooks + deployment guide
 
 ## 📄 License
