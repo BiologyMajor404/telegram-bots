@@ -86,6 +86,15 @@ pip install -r requirements-dev.txt
 python -m slotbook
 ```
 
+### Self-hosting on a Windows PC
+The bots use long polling, so they run on any always-on computer: no public IP, domain or open ports needed.
+To survive Docker Desktop crashes and reboots, register the watchdog once:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-watchdog.ps1
+```
+Every 5 minutes it starts Docker Desktop if needed, restarts it if the engine hangs, and brings back
+any stopped service. Events go to `logs/watchdog.log`.
+
 ### Tests and linting
 ```bash
 pytest
