@@ -99,3 +99,8 @@ ruff check .
 - [ ] ChatGuard AI: LLM-based spam detection with explanations for admins
 - [ ] SplitMate: inline expense entry, receipt photo recognition, minimal settle-up transfers
 - [ ] Webhooks + deployment guide
+
+## 📄 License
+
+© 2026 BiologyMajor404. All rights reserved. The code is published for portfolio review only. See [LICENSE](LICENSE).
+Want a bot like this for your business? [Contact me on GitHub](https://github.com/BiologyMajor404).
