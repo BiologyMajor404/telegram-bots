@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from html import escape
 from zoneinfo import ZoneInfo
 
@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shared.notify import notify_all
 from slotbook import keyboards as kb
 from slotbook import repo, scheduling, texts
-from slotbook.models import BookingStatus
+from slotbook.models import BookingStatus, Service
 
 router = Router(name="client")
 
@@ -60,6 +60,17 @@ async def choose_day(
     await cb.answer()
 
 
+async def choose_time_text(session: AsyncSession, service: Service, day: date) -> str:
+    # Explains why late slots are missing: the service must end before closing time
+    wd = (await repo.work_days(session))[day.weekday()]
+    return texts.CHOOSE_TIME.format(
+        service=texts.fmt_service(service),
+        day=texts.fmt_day(day),
+        duration=service.duration_min,
+        end=f"{wd.end:%H:%M}",
+    )
+
+
 @router.callback_query(kb.Day.filter())
 async def choose_time(
     cb: CallbackQuery, callback_data: kb.Day, session: AsyncSession, tz: ZoneInfo
@@ -74,7 +85,7 @@ async def choose_time(
         await cb.answer(texts.NO_TIME, show_alert=True)
         return
     await cb.message.edit_text(
-        texts.CHOOSE_TIME.format(service=texts.fmt_service(service), day=texts.fmt_day(day)),
+        await choose_time_text(session, service, day),
         reply_markup=kb.times(service.id, slots, tz),
     )
     await cb.answer()
@@ -117,9 +128,7 @@ async def create_booking(
         slots = await scheduling.free_slots(session, service, tz, day)
         if slots:
             await cb.message.edit_text(
-                texts.CHOOSE_TIME.format(
-                    service=texts.fmt_service(service), day=texts.fmt_day(day)
-                ),
+                await choose_time_text(session, service, day),
                 reply_markup=kb.times(service.id, slots, tz),
             )
         else:
