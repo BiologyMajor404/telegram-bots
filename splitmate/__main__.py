@@ -55,7 +55,7 @@ async def main() -> None:
 
     await bot.set_my_commands(GROUP_COMMANDS, scope=BotCommandScopeAllGroupChats())
     await bot.set_my_commands([BotCommand(command="start", description="Как начать")])
-    log.info("SplitMate started")
+    log.info("SplitMates started")
     try:
         await dp.start_polling(bot)
     finally:

@@ -7,7 +7,7 @@ All bots share one core (config, database, logging, middlewares) and run with a 
 |---|---|---|
 | 💈 **[SlotBook](#-slotbook)** · [@slotbook_nl_bot](https://t.me/slotbook_nl_bot) | Online booking for barbers, nail masters, tutors | 🟢 MVP |
 | 🛡 **ChatGuard AI** · [@chatguard_nl_bot](https://t.me/chatguard_nl_bot) | AI anti-spam moderator for group chats | 🔜 Planned |
-| 💸 **[SplitMate](#-splitmate)** · [@splitmate_nl_bot](https://t.me/splitmate_nl_bot) | "Who owes whom" for trips and shared purchases, right in the group chat | 🟢 MVP |
+| 💸 **[SplitMates](#-splitmates)** · [@splitmate_nl_bot](https://t.me/splitmate_nl_bot) | "Who owes whom" for trips and shared purchases, right in the group chat | 🟢 MVP |
 
 **Stack:** Python 3.14 · aiogram 3 · SQLAlchemy 2 (async) · PostgreSQL · Redis · Docker · pytest · GitHub Actions
 
@@ -83,10 +83,10 @@ docker-compose.yml  # Postgres, Redis and the bots
 
 ---
 
-## 💸 SplitMate
+## 💸 SplitMates
 
 Trips, flatmates, a birthday gift: someone always pays, and nobody remembers who owes what.
-Apps like Splitwise need everyone to install them, so in practice nobody does. SplitMate lives in the
+Apps like Splitwise need everyone to install them, so in practice nobody does. SplitMates lives in the
 group chat that already exists.
 
 ### Features
@@ -149,8 +149,8 @@ ruff check .
 - [x] SlotBook: prepayment via Telegram Stars to reduce no-shows
 - [ ] SlotBook: Google Calendar sync
 - [ ] ChatGuard AI: LLM-based spam detection with explanations for admins
-- [x] SplitMate: inline expense entry, minimal settle-up transfers
-- [ ] SplitMate Pro (Telegram Stars): receipt photo recognition, export to Excel, unequal splits
+- [x] SplitMates: inline expense entry, minimal settle-up transfers
+- [ ] SplitMates Pro (Telegram Stars): receipt photo recognition, export to Excel, unequal splits
 - [ ] Webhooks + deployment guide
 
 ## 📄 License
