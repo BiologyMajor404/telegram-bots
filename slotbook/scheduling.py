@@ -7,7 +7,7 @@ from aiogram.types import User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from slotbook import repo
-from slotbook.models import Booking, Service
+from slotbook.models import Booking, BookingStatus, Service
 from slotbook.slots import available_slots
 
 BOOKING_HORIZON_DAYS = 14
@@ -52,9 +52,15 @@ async def free_slots(
 
 
 async def book(
-    session: AsyncSession, service: Service, starts_at: datetime, user: User, tz: ZoneInfo
+    session: AsyncSession,
+    service: Service,
+    starts_at: datetime,
+    user: User,
+    tz: ZoneInfo,
+    deposit: int = 0,
 ) -> Booking | None:
-    """Create a booking or return None if the slot is no longer free."""
+    """Create a booking or return None if the slot is no longer free.
+    With a deposit the booking stays PENDING (slot held) until the client pays."""
     await repo.lock_bookings(session)
     day = starts_at.astimezone(tz).date()
     if starts_at not in await free_slots(session, service, tz, day):
@@ -69,6 +75,8 @@ async def book(
         service_id=service.id,
         starts_at=starts_at,
         ends_at=starts_at + timedelta(minutes=service.duration_min),
+        status=BookingStatus.PENDING if deposit else BookingStatus.ACTIVE,
+        deposit_stars=deposit,
         # Don't send a "tomorrow" reminder for a booking made a few hours ahead
         reminded_24h=until_start < timedelta(hours=24),
         reminded_2h=until_start < timedelta(hours=2),

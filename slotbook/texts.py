@@ -50,7 +50,10 @@ def user_link(user_id: int, name: str) -> str:
 
 
 def fmt_booking(b: Booking, tz: ZoneInfo) -> str:
-    return f"<b>{fmt_dt(b.starts_at, tz)}</b>\n{fmt_service(b.service)}"
+    text = f"<b>{fmt_dt(b.starts_at, tz)}</b>\n{fmt_service(b.service)}"
+    if b.payment_charge_id and not b.refunded:
+        text += f"\n⭐ Депозит {b.deposit_stars} оплачен"
+    return text
 
 
 WELCOME = (
@@ -77,6 +80,32 @@ BOOKED = (
     "✅ Вы записаны!\n\n{booking}\n\n"
     "Я напомню за день и за 2 часа до визита. Отменить запись можно в «Мои записи»."
 )
+
+# --- Deposit in Telegram Stars ---
+PAY_REQUIRED = (
+    "⏳ Почти готово! Время удержано за вами на {minutes} мин.\n\n{booking}\n\n"
+    "Чтобы подтвердить запись, оплатите депозит <b>{stars} ⭐</b> в сообщении ниже. "
+    "Он защищает мастера от неявок. Если отмените запись не позже чем за {hours} ч "
+    "до визита, депозит вернётся."
+)
+INVOICE_TITLE = "Депозит за запись"
+INVOICE_DESCRIPTION = "{service}, {dt}. Возвращается при отмене за 24 ч до визита."
+PAY_EXPIRED = "Время на оплату вышло, бронь снята. Запишитесь заново, пожалуйста."
+PAY_HOLD_EXPIRED = (
+    "⌛ Депозит не был оплачен, и бронь снята:\n\n{booking}\n\nМожно записаться заново."
+)
+PAY_LATE_REFUNDED = (
+    "Оплата пришла уже после того, как бронь была снята, поэтому мы вернули Stars. "
+    "Запишитесь заново, пожалуйста."
+)
+PAYSUPPORT = (
+    "По вопросам оплаты напишите мастеру в этот чат или нажмите /start → «Мои записи». "
+    "Депозит возвращается автоматически при отмене не позже чем за 24 часа до визита "
+    "или если запись отменил мастер."
+)
+CANCELLED_REFUNDED = "Запись отменена, депозит возвращён ⭐"
+CANCELLED_NO_REFUND = "Запись отменена. До визита меньше 24 часов, поэтому депозит не возвращается."
+DEPOSIT_RETURNED = "\n\nДепозит возвращён ⭐"
 
 MY_EMPTY = "У вас нет предстоящих записей."
 MY_LIST = "Ваши записи:\n\n{items}\n\nЧтобы отменить, нажмите на запись ниже."
@@ -110,5 +139,15 @@ ADMIN_ASK_HOURS = (
 )
 ADMIN_BAD_HOURS = "Не понял формат. Пример: <code>10:00-19:00</code> или <code>-</code>"
 ADMIN_HOURS_SAVED = "✅ Часы сохранены"
+ADMIN_ASK_DEPOSIT = (
+    "⭐ <b>Предоплата</b> (сейчас: {current})\n\n"
+    "Клиент оплачивает депозит в Telegram Stars при записи, бронь подтверждается после оплаты. "
+    "Так меньше неявок.\n\n"
+    "Отправьте сумму в ⭐ (например, <code>50</code>) или <code>0</code>, чтобы выключить. "
+    "/cancel — отмена"
+)
+ADMIN_BAD_DEPOSIT = "Нужно целое число от 0 до {max}"
+ADMIN_DEPOSIT_ON = "✅ Предоплата включена: {stars} ⭐"
+ADMIN_DEPOSIT_OFF = "✅ Предоплата выключена"
 ADMIN_CANCELLED = "Запись отменена, клиент получил уведомление."
 ACTION_CANCELLED = "Отменено."

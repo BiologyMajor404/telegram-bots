@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from shared.notify import safe_send
-from slotbook import texts
+from slotbook import payments, repo, texts
 from slotbook.models import Booking, BookingStatus
 from slotbook.scheduling import now_utc
 
@@ -46,9 +46,21 @@ async def send_due_reminders(bot: Bot, session_factory: async_sessionmaker, tz: 
             await session.commit()
 
 
+async def release_unpaid_holds(bot: Bot, session_factory: async_sessionmaker, tz: ZoneInfo) -> None:
+    async with session_factory() as session:
+        for booking in await repo.expire_unpaid(session, now_utc() - payments.HOLD_TIME):
+            await safe_send(
+                bot,
+                booking.user_id,
+                texts.PAY_HOLD_EXPIRED.format(booking=texts.fmt_booking(booking, tz)),
+            )
+
+
 async def reminder_loop(bot: Bot, session_factory: async_sessionmaker, tz: ZoneInfo) -> None:
+    """Background jobs that run every minute: reminders and releasing unpaid holds."""
     while True:
         try:
+            await release_unpaid_holds(bot, session_factory, tz)
             await send_due_reminders(bot, session_factory, tz)
         except Exception:
             log.exception("Reminder check failed")

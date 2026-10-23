@@ -5,7 +5,9 @@ from datetime import datetime, time
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from slotbook.models import Booking, BookingStatus, Service, WorkDay
+from slotbook.models import Booking, BookingStatus, Service, Setting, WorkDay
+
+DEPOSIT_KEY = "deposit_stars"
 
 DEMO_SERVICES = [("Стрижка", 60, 1500), ("Стрижка бороды", 30, 800), ("Стрижка + борода", 90, 2000)]
 DEMO_HOURS = {0: (10, 20), 1: (10, 20), 2: (10, 20), 3: (10, 20), 4: (10, 20), 5: (11, 17)}
@@ -52,6 +54,20 @@ async def hide_service(session: AsyncSession, service_id: int) -> None:
         await session.commit()
 
 
+# --- Settings ---
+
+
+async def get_deposit(session: AsyncSession) -> int:
+    """Deposit in Telegram Stars the client pays when booking; 0 = no prepayment."""
+    setting = await session.get(Setting, DEPOSIT_KEY)
+    return int(setting.value) if setting else 0
+
+
+async def set_deposit(session: AsyncSession, stars: int) -> None:
+    await session.merge(Setting(key=DEPOSIT_KEY, value=str(stars)))
+    await session.commit()
+
+
 # --- Working hours ---
 
 
@@ -81,7 +97,8 @@ async def busy_intervals(
 ) -> list[tuple[datetime, datetime]]:
     rows = await session.execute(
         select(Booking.starts_at, Booking.ends_at).where(
-            Booking.status == BookingStatus.ACTIVE,
+            # A booking waiting for the deposit holds its slot too
+            Booking.status.in_([BookingStatus.ACTIVE, BookingStatus.PENDING]),
             Booking.starts_at < end,
             Booking.ends_at > start,
         )
@@ -124,3 +141,23 @@ async def upcoming_user_bookings(
 async def cancel_booking(session: AsyncSession, booking: Booking) -> None:
     booking.status = BookingStatus.CANCELLED
     await session.commit()
+
+
+async def mark_paid(session: AsyncSession, booking: Booking, charge_id: str) -> None:
+    booking.status = BookingStatus.ACTIVE
+    booking.payment_charge_id = charge_id
+    await session.commit()
+
+
+async def expire_unpaid(session: AsyncSession, created_before: datetime) -> list[Booking]:
+    """Release slots held for deposits that weren't paid in time."""
+    result = await session.scalars(
+        select(Booking).where(
+            Booking.status == BookingStatus.PENDING, Booking.created_at < created_before
+        )
+    )
+    expired = list(result)
+    for booking in expired:
+        booking.status = BookingStatus.EXPIRED
+    await session.commit()
+    return expired

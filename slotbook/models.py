@@ -24,14 +24,25 @@ class WorkDay(Base):
 
     __tablename__ = "work_days"
 
-    weekday: Mapped[int] = mapped_column(primary_key=True)  # 0 = Monday
+    weekday: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)  # 0 = Monday
     start: Mapped[time | None]
     end: Mapped[time | None]
 
 
+class Setting(Base):
+    """Key-value settings the master changes from the bot (e.g. the deposit size)."""
+
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(256))
+
+
 class BookingStatus:
+    PENDING = "pending"  # slot is held while the client pays the deposit
     ACTIVE = "active"
     CANCELLED = "cancelled"
+    EXPIRED = "expired"  # deposit wasn't paid in time
 
 
 class Booking(Base):
@@ -48,4 +59,7 @@ class Booking(Base):
     status: Mapped[str] = mapped_column(String(16), default=BookingStatus.ACTIVE)
     reminded_24h: Mapped[bool] = mapped_column(default=False)
     reminded_2h: Mapped[bool] = mapped_column(default=False)
+    deposit_stars: Mapped[int] = mapped_column(default=0, server_default="0")
+    payment_charge_id: Mapped[str | None] = mapped_column(String(128))
+    refunded: Mapped[bool] = mapped_column(default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

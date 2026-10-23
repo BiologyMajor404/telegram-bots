@@ -13,8 +13,7 @@ from shared.middlewares import DbSessionMiddleware
 from shared.storage import make_storage
 from slotbook import repo
 from slotbook.config import SlotBookSettings
-from slotbook.handlers import admin, client
-from slotbook.models import Base
+from slotbook.handlers import admin, client, payments
 from slotbook.reminders import reminder_loop
 
 log = logging.getLogger("slotbook")
@@ -38,7 +37,10 @@ async def main() -> None:
     if not settings.admin_ids:
         log.warning("SLOTBOOK_ADMIN_IDS is empty: nobody will get the master panel")
 
-    engine, session_factory = await init_db(settings.database_url, Base)
+    # DBs created before migrations were added already have the 0001 schema
+    engine, session_factory = await init_db(
+        settings.database_url, "slotbook:migrations", baseline=("0001", "bookings")
+    )
     async with session_factory() as session:
         await repo.seed_defaults(session)
 
@@ -54,9 +56,14 @@ async def main() -> None:
     dp.update.middleware(DbSessionMiddleware(session_factory))
     dp.errors.register(on_error)
     # Admin router goes first so its FSM steps win over the client fallback handler
-    dp.include_routers(admin.router, client.router)
+    dp.include_routers(admin.router, payments.router, client.router)
 
-    await bot.set_my_commands([BotCommand(command="start", description="Записаться")])
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="Записаться"),
+            BotCommand(command="paysupport", description="Вопросы по оплате"),
+        ]
+    )
     reminders = asyncio.create_task(reminder_loop(bot, session_factory, settings.tz))
     log.info("SlotBook started")
     try:

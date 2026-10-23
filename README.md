@@ -33,12 +33,25 @@ panel to manage everything without leaving Telegram.
 - Add and hide services (name, duration, price)
 - Edit working hours per weekday, including days off
 - Cancel a booking, and the client is notified automatically
+- Turn on a **deposit in Telegram Stars** to cut no-shows
+
+**Deposit in Telegram Stars ⭐**
+- The client pays the deposit right in the chat; the slot is held for 15 minutes and released automatically if unpaid
+- The booking is confirmed (and the master notified) only after a successful payment
+- Fair refunds: the deposit returns automatically if the client cancels 24+ hours ahead or the master cancels
+- Edge cases handled: hold expiring between the pre-checkout check and the payment triggers an automatic refund
+- `/paysupport` command as required by Telegram for bots that accept Stars
+
+> Stars are used here because they work without a merchant account, which is ideal for a demo.
+> For a real offline business (a haircut is a physical service) the same flow should run through a
+> payment provider such as ЮKassa or Stripe, per Telegram's payment rules.
 
 ### Engineering details
 - **No double booking:** the slot is re-validated inside a transaction guarded by a PostgreSQL advisory lock, so two clients can't grab the same time
 - **Timezone-correct:** all times are stored in UTC and shown in the master's timezone
 - **Stateless booking flow:** every step is encoded in compact callback data (Telegram's 64-byte limit), so the flow survives restarts. FSM (stored in Redis) is used only for multi-step admin forms
 - **Pure, unit-tested slot engine** ([`slotbook/slots.py`](slotbook/slots.py)) separated from the DB and Telegram layers
+- **Schema migrations with Alembic** run automatically on startup; databases created before migrations existed are detected and stamped
 - Demo data (services + working hours) is seeded on the first run, so the bot is usable immediately
 
 ### Project structure
@@ -53,9 +66,11 @@ slotbook/
   models.py         # Service, WorkDay, Booking
   slots.py          # pure slot calculation
   scheduling.py     # free days/slots, safe booking
+  payments.py       # Stars invoice, refund policy, refunds
   repo.py           # all DB queries
-  handlers/         # client.py, admin.py
-  reminders.py      # background reminder loop
+  handlers/         # client.py, admin.py, payments.py
+  reminders.py      # background jobs: reminders, releasing unpaid holds
+  migrations/       # Alembic revisions
   keyboards.py, texts.py
 tests/              # pytest
 docker-compose.yml  # Postgres, Redis and the bots
@@ -103,7 +118,7 @@ ruff check .
 
 ## 🗺 Roadmap
 - [ ] SlotBook: Telegram Mini App with a calendar view
-- [ ] SlotBook: prepayment via Telegram Stars to reduce no-shows
+- [x] SlotBook: prepayment via Telegram Stars to reduce no-shows
 - [ ] SlotBook: Google Calendar sync
 - [ ] ChatGuard AI: LLM-based spam detection with explanations for admins
 - [ ] SplitMate: inline expense entry, receipt photo recognition, minimal settle-up transfers

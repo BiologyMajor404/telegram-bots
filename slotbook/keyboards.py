@@ -126,6 +126,7 @@ def admin_menu() -> InlineKeyboardMarkup:
     b.button(text="🗓 Записи на неделю", callback_data=Admin(action="list", id=7))
     b.button(text="💈 Услуги", callback_data=Admin(action="services"))
     b.button(text="🕘 Рабочие часы", callback_data=Admin(action="hours"))
+    b.button(text="⭐ Предоплата", callback_data=Admin(action="deposit"))
     b.button(text="◀️ В меню", callback_data=Menu(action="home"))
     b.adjust(1)
     return b.as_markup()

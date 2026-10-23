@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.notify import safe_send
 from slotbook import keyboards as kb
-from slotbook import repo, scheduling, texts
+from slotbook import payments, repo, scheduling, texts
 from slotbook.models import BookingStatus
 
 
@@ -35,6 +35,13 @@ class AddService(StatesGroup):
 
 class EditHours(StatesGroup):
     value = State()
+
+
+class EditDeposit(StatesGroup):
+    value = State()
+
+
+MAX_DEPOSIT_STARS = 10_000
 
 
 HOURS_RE = re.compile(r"^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$")
@@ -121,11 +128,14 @@ async def cancel_booking(
     if not booking or booking.status != BookingStatus.ACTIVE:
         await cb.answer(texts.CANT_CANCEL, show_alert=True)
         return
+    give_back = payments.refund_due(booking, scheduling.now_utc(), by_master=True)
     await repo.cancel_booking(session, booking)
+    refunded = give_back and await payments.refund(bot, session, booking)
     await safe_send(
         bot,
         booking.user_id,
-        texts.CLIENT_CANCELLED_BY_ADMIN.format(booking=texts.fmt_booking(booking, tz)),
+        texts.CLIENT_CANCELLED_BY_ADMIN.format(booking=texts.fmt_booking(booking, tz))
+        + (texts.DEPOSIT_RETURNED if refunded else ""),
     )
     await cb.message.edit_text(texts.ADMIN_CANCELLED, reply_markup=kb.admin_back())
     await cb.answer()
@@ -226,3 +236,27 @@ async def hours_edit_save(message: Message, state: FSMContext, session: AsyncSes
     await repo.set_work_day(session, weekday, start, end)
     await state.clear()
     await message.answer(texts.ADMIN_HOURS_SAVED, reply_markup=kb.admin_menu())
+
+
+# --- Deposit ---
+
+
+@router.callback_query(kb.Admin.filter(F.action == "deposit"))
+async def deposit_start(cb: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
+    stars = await repo.get_deposit(session)
+    current = f"{stars} ⭐" if stars else "выключен"
+    await state.set_state(EditDeposit.value)
+    await cb.message.answer(texts.ADMIN_ASK_DEPOSIT.format(current=current))
+    await cb.answer()
+
+
+@router.message(EditDeposit.value, F.text)
+async def deposit_save(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    raw = message.text.strip()
+    if not raw.isdigit() or int(raw) > MAX_DEPOSIT_STARS:
+        await message.answer(texts.ADMIN_BAD_DEPOSIT.format(max=MAX_DEPOSIT_STARS))
+        return
+    await repo.set_deposit(session, int(raw))
+    await state.clear()
+    text = texts.ADMIN_DEPOSIT_ON.format(stars=raw) if int(raw) else texts.ADMIN_DEPOSIT_OFF
+    await message.answer(text, reply_markup=kb.admin_menu())

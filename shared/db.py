@@ -4,12 +4,14 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
+
+from shared.migrations import run_migrations
 
 
-async def init_db(url: str, base: type[DeclarativeBase]) -> tuple[AsyncEngine, async_sessionmaker]:
-    """Create the engine, make sure tables exist and return a session factory."""
+async def init_db(
+    url: str, migrations: str, baseline: tuple[str, str] | None = None
+) -> tuple[AsyncEngine, async_sessionmaker]:
+    """Create the engine, apply migrations and return a session factory."""
     engine = create_async_engine(url, pool_pre_ping=True)
-    async with engine.begin() as conn:
-        await conn.run_sync(base.metadata.create_all)
+    await run_migrations(engine, migrations, baseline)
     return engine, async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

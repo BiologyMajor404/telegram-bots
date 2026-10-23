@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.notify import notify_all
 from slotbook import keyboards as kb
-from slotbook import repo, scheduling, texts
+from slotbook import payments, repo, scheduling, texts
 from slotbook.models import BookingStatus, Service
 
 router = Router(name="client")
@@ -121,7 +121,8 @@ async def create_booking(
         await cb.answer(texts.NO_SERVICES, show_alert=True)
         return
     starts_at = datetime.fromtimestamp(callback_data.ts, UTC)
-    booking = await scheduling.book(session, service, starts_at, cb.from_user, tz)
+    deposit = await repo.get_deposit(session)
+    booking = await scheduling.book(session, service, starts_at, cb.from_user, tz, deposit)
     if booking is None:
         await cb.answer(texts.SLOT_TAKEN, show_alert=True)
         day = starts_at.astimezone(tz).date()
@@ -133,6 +134,21 @@ async def create_booking(
             )
         else:
             await cb.message.edit_text(texts.NO_TIME, reply_markup=kb.back_home())
+        return
+
+    if booking.status == BookingStatus.PENDING:
+        # The booking is confirmed (and the master notified) after the deposit is paid
+        await cb.message.edit_text(
+            texts.PAY_REQUIRED.format(
+                booking=texts.fmt_booking(booking, tz),
+                stars=booking.deposit_stars,
+                minutes=int(payments.HOLD_TIME.total_seconds() // 60),
+                hours=int(payments.FREE_CANCEL_BEFORE.total_seconds() // 3600),
+            ),
+            reply_markup=kb.back_home(),
+        )
+        await cb.answer()
+        await payments.send_invoice(bot, booking, tz)
         return
 
     await cb.message.edit_text(
@@ -184,8 +200,15 @@ async def cancel_booking(
     ):
         await cb.answer(texts.CANT_CANCEL, show_alert=True)
         return
+    paid = payments.is_paid(booking)
+    give_back = payments.refund_due(booking, scheduling.now_utc(), by_master=False)
     await repo.cancel_booking(session, booking)
-    await cb.answer(texts.CANCELLED)
+    if give_back and await payments.refund(bot, session, booking):
+        await cb.answer(texts.CANCELLED_REFUNDED, show_alert=True)
+    elif paid:
+        await cb.answer(texts.CANCELLED_NO_REFUND, show_alert=True)
+    else:
+        await cb.answer(texts.CANCELLED)
     await show_my_bookings(cb, session, tz)
     await notify_all(
         bot,
