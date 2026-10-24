@@ -350,13 +350,21 @@ async def pick_share(
     await cb.answer()
 
 
+async def ask_again(message: Message, state: FSMContext, text: str) -> None:
+    """Explain the problem and keep the reply field open: the next message must again be
+    a reply to the bot, otherwise privacy mode hides it from the bot."""
+    hint = await message.reply(text, reply_markup=ForceReply(selective=True))
+    data = await state.get_data()
+    await state.update_data(cleanup=data.get("cleanup", []) + [message.message_id, hint.message_id])
+
+
 @router.message(EnterShare.amount, F.text)
 async def share_entered(
     message: Message, session: AsyncSession, state: FSMContext, bot: Bot, t: Ru
 ) -> None:
     parsed = parse_amount(message.text)
     if parsed is None:
-        await message.reply(t.BAD_SHARE)
+        await ask_again(message, state, t.BAD_SHARE)
         return
     data = await state.get_data()
     expense = await repo.get_expense(session, data["expense"])
@@ -366,15 +374,15 @@ async def share_entered(
     try:
         await repo.set_share(session, expense, data["user"], parsed[0])
     except ShareError as e:
-        await message.reply(await share_error_text(t, session, expense, e))
+        await ask_again(message, state, await share_error_text(t, session, expense, e))
         return
     await state.clear()
     text, markup = await amounts_view(t, session, expense)
     await bot.edit_message_text(
         text, chat_id=message.chat.id, message_id=data["editor"], reply_markup=markup
     )
-    # Tidy up the question and the answer; needs "delete messages" rights, so may fail
-    for message_id in (data["prompt"], message.message_id):
+    # Tidy up the question, wrong attempts and the answer; needs "delete messages" rights
+    for message_id in [data["prompt"], *data.get("cleanup", []), message.message_id]:
         with suppress(TelegramBadRequest, TelegramForbiddenError):
             await bot.delete_message(message.chat.id, message_id)
 
