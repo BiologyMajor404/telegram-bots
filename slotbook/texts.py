@@ -1,5 +1,5 @@
 """User-facing texts and formatting, one class per language.
-English subclasses Russian; tests check that it overrides every text."""
+Other languages subclass Russian; tests check that they override every text."""
 
 from datetime import date, datetime
 from html import escape
@@ -40,6 +40,8 @@ class Ru:
     ]
     MIN = "мин"
     DAY_OFF = "выходной"
+    # The master's currency, same for every language; set from SLOTBOOK_CURRENCY at startup
+    currency = "₴"
 
     def fmt_day(self, d: date) -> str:
         return f"{self.WEEKDAYS[d.weekday()]}, {d.day} {self.MONTHS[d.month - 1]}"
@@ -49,7 +51,7 @@ class Ru:
         return f"{self.fmt_day(local.date())}, {local:%H:%M}"
 
     def fmt_service(self, s: Service) -> str:
-        return f"{escape(s.name)} · {s.duration_min} {self.MIN} · {s.price} ₽"
+        return f"{escape(s.name)} · {s.duration_min} {self.MIN} · {s.price} {self.currency}"
 
     def fmt_booking(self, b: Booking, tz: ZoneInfo) -> str:
         text = f"<b>{self.fmt_dt(b.starts_at, tz)}</b>\n{self.fmt_service(b.service)}"
@@ -61,7 +63,6 @@ class Ru:
     BTN_BOOK = "📅 Записаться"
     BTN_MY = "🗂 Мои записи"
     BTN_ADMIN = "⚙️ Панель мастера"
-    BTN_LANGUAGE = "🌐 Language / Язык"
     BTN_HOME = "◀️ В меню"
     BTN_SERVICES = "◀️ Услуги"
     BTN_DAYS = "◀️ Дни"
@@ -88,7 +89,6 @@ class Ru:
     )
     MAIN_MENU = "Что хотите сделать?"
     UNKNOWN = "Не понял 🙂 Воспользуйтесь кнопками меню."
-    CHOOSE_LANGUAGE = "Выберите язык / Choose language:"
     LANGUAGE_SET = "Готово, теперь я говорю по-русски 🇷🇺"
 
     NO_SERVICES = "Сейчас нет доступных услуг"
@@ -158,7 +158,7 @@ class Ru:
     ADMIN_SERVICES = "Услуги:\n\n{items}\n\nНажмите 🗑, чтобы скрыть услугу."
     ADMIN_ASK_NAME = "Название новой услуги? (/cancel — отмена)"
     ADMIN_ASK_DURATION = "Длительность в минутах, кратно 30 (например, 60):"
-    ADMIN_ASK_PRICE = "Цена в рублях (например, 1500):"
+    ADMIN_ASK_PRICE = "Цена (например, 1500):"
     ADMIN_BAD_NUMBER = "Нужно целое положительное число, попробуйте ещё раз"
     ADMIN_BAD_DURATION = "Длительность должна быть кратна 30 минутам"
     ADMIN_SERVICE_ADDED = "✅ Услуга добавлена"
@@ -216,7 +216,6 @@ class En(Ru):
     BTN_BOOK = "📅 Book"
     BTN_MY = "🗂 My bookings"
     BTN_ADMIN = "⚙️ Master panel"
-    BTN_LANGUAGE = "🌐 Language / Язык"
     BTN_HOME = "◀️ Menu"
     BTN_SERVICES = "◀️ Services"
     BTN_DAYS = "◀️ Days"
@@ -241,7 +240,6 @@ class En(Ru):
     )
     MAIN_MENU = "What would you like to do?"
     UNKNOWN = "Sorry, I didn't get that 🙂 Please use the menu buttons."
-    CHOOSE_LANGUAGE = "Choose language / Выберите язык:"
     LANGUAGE_SET = "Done, I speak English now 🇬🇧"
 
     NO_SERVICES = "No services are available right now"
@@ -310,7 +308,7 @@ class En(Ru):
     ADMIN_SERVICES = "Services:\n\n{items}\n\nTap 🗑 to hide a service."
     ADMIN_ASK_NAME = "Name of the new service? (/cancel to abort)"
     ADMIN_ASK_DURATION = "Duration in minutes, a multiple of 30 (e.g. 60):"
-    ADMIN_ASK_PRICE = "Price in rubles (e.g. 1500):"
+    ADMIN_ASK_PRICE = "Price (e.g. 1500):"
     ADMIN_BAD_NUMBER = "A positive whole number is needed, please try again"
     ADMIN_BAD_DURATION = "The duration must be a multiple of 30 minutes"
     ADMIN_SERVICE_ADDED = "✅ Service added"
@@ -336,4 +334,292 @@ class En(Ru):
     ACTION_CANCELLED = "Cancelled."
 
 
-TEXTS: dict[str, Ru] = {"ru": Ru(), "en": En()}
+class Uk(Ru):
+    LANG = "uk"
+    WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "нд"]
+    WEEKDAYS_FULL = ["Понеділок", "Вівторок", "Середа", "Четвер", "Пʼятниця", "Субота", "Неділя"]
+    MONTHS = [
+        "січня",
+        "лютого",
+        "березня",
+        "квітня",
+        "травня",
+        "червня",
+        "липня",
+        "серпня",
+        "вересня",
+        "жовтня",
+        "листопада",
+        "грудня",
+    ]
+    MIN = "хв"
+    DAY_OFF = "вихідний"
+
+    BTN_BOOK = "📅 Записатися"
+    BTN_MY = "🗂 Мої записи"
+    BTN_ADMIN = "⚙️ Панель майстра"
+    BTN_HOME = "◀️ До меню"
+    BTN_SERVICES = "◀️ Послуги"
+    BTN_DAYS = "◀️ Дні"
+    BTN_CONFIRM = "✅ Підтвердити"
+    BTN_OTHER_TIME = "◀️ Інший час"
+    BTN_TODAY = "📋 Записи на сьогодні"
+    BTN_WEEK = "🗓 Записи на тиждень"
+    BTN_ADMIN_SERVICES = "💈 Послуги майстра"
+    BTN_HOURS = "🕘 Робочі години"
+    BTN_DEPOSIT = "⭐ Передоплата"
+    BTN_ADMIN_BACK = "◀️ До панелі майстра"
+    BTN_ADD_SERVICE = "➕ Додати послугу"
+
+    CMD_START = "Записатися"
+    CMD_PAYSUPPORT = "Питання щодо оплати"
+    CMD_LANGUAGE = "Змінити мову"
+
+    WELCOME = (
+        "Привіт, {name}! 👋\n\n"
+        "Я допоможу записатися до майстра за кілька натискань: оберіть послугу, "
+        "день і вільний час, а я нагадаю про візит заздалегідь."
+    )
+    MAIN_MENU = "Що бажаєте зробити?"
+    UNKNOWN = "Не зрозумів 🙂 Скористайтеся кнопками меню."
+    LANGUAGE_SET = "Готово, тепер я розмовляю українською 🇺🇦"
+
+    NO_SERVICES = "Зараз немає доступних послуг"
+    CHOOSE_SERVICE = "Оберіть послугу:"
+    CHOOSE_DAY = "<b>{service}</b>\n\nОберіть день:"
+    NO_DAYS = "На найближчі два тижні вільних віконець немає 😔"
+    CHOOSE_TIME = (
+        "<b>{service}</b>\n{day}\n\n"
+        "<i>Послуга триває {duration} хв, майстер працює до {end}</i>\n\n"
+        "Оберіть час:"
+    )
+    NO_TIME = "На цей день час уже розібрали, оберіть інший"
+    CONFIRM = "Перевірте запис:\n\n<b>{dt}</b>\n{service}\n\nУсе правильно?"
+    SLOT_TAKEN = "Йой, цей час щойно зайняли. Оберіть інший 🙏"
+    BOOKED = (
+        "✅ Ви записані!\n\n{booking}\n\n"
+        "Я нагадаю за день і за 2 години до візиту. Скасувати запис можна в «Мої записи»."
+    )
+
+    DEPOSIT_PAID = "⭐ Депозит {stars} сплачено"
+    PAY_REQUIRED = (
+        "⏳ Майже готово! Час закріплено за вами на {minutes} хв.\n\n{booking}\n\n"
+        "Щоб підтвердити запис, сплатіть депозит <b>{stars} ⭐</b> у повідомленні нижче. "
+        "Він захищає майстра від неявок. Якщо скасуєте запис не пізніше ніж за {hours} год "
+        "до візиту, депозит повернеться."
+    )
+    INVOICE_TITLE = "Депозит за запис"
+    INVOICE_DESCRIPTION = "{service}, {dt}. Повертається при скасуванні за 24 год до візиту."
+    PAY_EXPIRED = "Час на оплату минув, бронь знято. Запишіться, будь ласка, ще раз."
+    PAY_HOLD_EXPIRED = (
+        "⌛ Депозит не було сплачено, тож бронь знято:\n\n{booking}\n\nМожна записатися знову."
+    )
+    PAY_LATE_REFUNDED = (
+        "Оплата надійшла вже після того, як бронь знято, тому ми повернули Stars. "
+        "Запишіться, будь ласка, ще раз."
+    )
+    PAYSUPPORT = (
+        "З питань оплати напишіть майстру в цей чат або натисніть /start → «Мої записи». "
+        "Депозит повертається автоматично, якщо скасувати запис не пізніше ніж за 24 години "
+        "до візиту або якщо запис скасував майстер."
+    )
+    CANCELLED_REFUNDED = "Запис скасовано, депозит повернуто ⭐"
+    CANCELLED_NO_REFUND = "Запис скасовано. До візиту менше 24 годин, тому депозит не повертається."
+    DEPOSIT_RETURNED = "\n\nДепозит повернуто ⭐"
+
+    MY_EMPTY = "У вас немає майбутніх записів."
+    MY_LIST = "Ваші записи:\n\n{items}\n\nЩоб скасувати, натисніть на запис нижче."
+    CANCELLED = "Запис скасовано."
+    CANT_CANCEL = "Цей запис уже не можна скасувати"
+
+    REMIND_24H = "⏰ Нагадуємо: завтра у вас запис\n\n{booking}"
+    REMIND_2H = "⏰ За 2 години у вас запис\n\n{booking}"
+
+    ADMIN_NEW = "🆕 Новий запис\n\n{booking}\nКлієнт: {client}"
+    ADMIN_CANCELLED_BY_CLIENT = "❌ Клієнт скасував запис\n\n{booking}\nКлієнт: {client}"
+    CLIENT_CANCELLED_BY_ADMIN = (
+        "❌ Майстер скасував ваш запис\n\n{booking}\n\nЗапишіться, будь ласка, на інший час 🙏"
+    )
+
+    ADMIN_MENU = "⚙️ Панель майстра"
+    ADMIN_NO_BOOKINGS = "Записів немає."
+    ADMIN_SERVICES = "Послуги:\n\n{items}\n\nНатисніть 🗑, щоб приховати послугу."
+    ADMIN_ASK_NAME = "Назва нової послуги? (/cancel — скасувати)"
+    ADMIN_ASK_DURATION = "Тривалість у хвилинах, кратна 30 (наприклад, 60):"
+    ADMIN_ASK_PRICE = "Ціна (наприклад, 1500):"
+    ADMIN_BAD_NUMBER = "Потрібне ціле додатне число, спробуйте ще раз"
+    ADMIN_BAD_DURATION = "Тривалість має бути кратною 30 хвилинам"
+    ADMIN_SERVICE_ADDED = "✅ Послугу додано"
+    ADMIN_HOURS = "Робочі години:\n\n{items}\n\nОберіть день, щоб змінити."
+    ADMIN_ASK_HOURS = (
+        "<b>{day}</b>\n\nНадішліть години у форматі <code>10:00-19:00</code> "
+        "або <code>-</code> для вихідного. /cancel — скасувати"
+    )
+    ADMIN_BAD_HOURS = "Не зрозумів формат. Приклад: <code>10:00-19:00</code> або <code>-</code>"
+    ADMIN_HOURS_SAVED = "✅ Години збережено"
+    ADMIN_DEPOSIT_OFF_LABEL = "вимкнено"
+    ADMIN_ASK_DEPOSIT = (
+        "⭐ <b>Передоплата</b> (зараз: {current})\n\n"
+        "Клієнт сплачує депозит у Telegram Stars під час запису, бронь підтверджується після "
+        "оплати. Так менше неявок.\n\n"
+        "Надішліть суму в ⭐ (наприклад, <code>50</code>) або <code>0</code>, щоб вимкнути. "
+        "/cancel — скасувати"
+    )
+    ADMIN_BAD_DEPOSIT = "Потрібне ціле число від 0 до {max}"
+    ADMIN_DEPOSIT_ON = "✅ Передоплату ввімкнено: {stars} ⭐"
+    ADMIN_DEPOSIT_OFF = "✅ Передоплату вимкнено"
+    ADMIN_CANCELLED = "Запис скасовано, клієнт отримав сповіщення."
+    ACTION_CANCELLED = "Скасовано."
+
+
+class Pl(Ru):
+    LANG = "pl"
+    WEEKDAYS = ["pon", "wt", "śr", "czw", "pt", "sob", "niedz"]
+    WEEKDAYS_FULL = [
+        "Poniedziałek",
+        "Wtorek",
+        "Środa",
+        "Czwartek",
+        "Piątek",
+        "Sobota",
+        "Niedziela",
+    ]
+    MONTHS = [
+        "stycznia",
+        "lutego",
+        "marca",
+        "kwietnia",
+        "maja",
+        "czerwca",
+        "lipca",
+        "sierpnia",
+        "września",
+        "października",
+        "listopada",
+        "grudnia",
+    ]
+    MIN = "min"
+    DAY_OFF = "wolne"
+
+    BTN_BOOK = "📅 Umów wizytę"
+    BTN_MY = "🗂 Moje wizyty"
+    BTN_ADMIN = "⚙️ Panel specjalisty"
+    BTN_HOME = "◀️ Menu"
+    BTN_SERVICES = "◀️ Usługi"
+    BTN_DAYS = "◀️ Dni"
+    BTN_CONFIRM = "✅ Potwierdź"
+    BTN_OTHER_TIME = "◀️ Inna godzina"
+    BTN_TODAY = "📋 Wizyty na dziś"
+    BTN_WEEK = "🗓 Wizyty w tym tygodniu"
+    BTN_ADMIN_SERVICES = "💈 Usługi specjalisty"
+    BTN_HOURS = "🕘 Godziny pracy"
+    BTN_DEPOSIT = "⭐ Przedpłata"
+    BTN_ADMIN_BACK = "◀️ Panel specjalisty"
+    BTN_ADD_SERVICE = "➕ Dodaj usługę"
+
+    CMD_START = "Umów wizytę"
+    CMD_PAYSUPPORT = "Pytania o płatność"
+    CMD_LANGUAGE = "Zmień język"
+
+    WELCOME = (
+        "Cześć, {name}! 👋\n\n"
+        "Pomogę Ci umówić wizytę u specjalisty w kilku kliknięciach: wybierz usługę, dzień "
+        "i wolną godzinę, a ja przypomnę Ci o wizycie z wyprzedzeniem."
+    )
+    MAIN_MENU = "Co chcesz zrobić?"
+    UNKNOWN = "Nie rozumiem 🙂 Skorzystaj z przycisków menu."
+    LANGUAGE_SET = "Gotowe, teraz mówię po polsku 🇵🇱"
+
+    NO_SERVICES = "Obecnie brak dostępnych usług"
+    CHOOSE_SERVICE = "Wybierz usługę:"
+    CHOOSE_DAY = "<b>{service}</b>\n\nWybierz dzień:"
+    NO_DAYS = "Brak wolnych terminów w ciągu najbliższych dwóch tygodni 😔"
+    CHOOSE_TIME = (
+        "<b>{service}</b>\n{day}\n\n"
+        "<i>Usługa trwa {duration} min, specjalista pracuje do {end}</i>\n\n"
+        "Wybierz godzinę:"
+    )
+    NO_TIME = "Ten dzień jest już zajęty, wybierz inny"
+    CONFIRM = "Sprawdź wizytę:\n\n<b>{dt}</b>\n{service}\n\nWszystko się zgadza?"
+    SLOT_TAKEN = "Ups, ktoś właśnie zajął ten termin. Wybierz inny 🙏"
+    BOOKED = (
+        "✅ Wizyta umówiona!\n\n{booking}\n\n"
+        "Przypomnę Ci dzień i 2 godziny przed wizytą. Odwołać możesz w „Moje wizyty”."
+    )
+
+    DEPOSIT_PAID = "⭐ Zadatek {stars} opłacony"
+    PAY_REQUIRED = (
+        "⏳ Prawie gotowe! Termin jest zarezerwowany dla Ciebie na {minutes} min.\n\n"
+        "{booking}\n\n"
+        "Aby potwierdzić wizytę, opłać zadatek <b>{stars} ⭐</b> w wiadomości poniżej. "
+        "Chroni on specjalistę przed nieobecnościami. Jeśli odwołasz wizytę co najmniej "
+        "{hours} godz. wcześniej, zadatek wróci do Ciebie."
+    )
+    INVOICE_TITLE = "Zadatek za wizytę"
+    INVOICE_DESCRIPTION = "{service}, {dt}. Zwrot przy odwołaniu 24 godz. przed wizytą."
+    PAY_EXPIRED = "Czas na płatność minął i rezerwacja została zwolniona. Umów się ponownie."
+    PAY_HOLD_EXPIRED = (
+        "⌛ Zadatek nie został opłacony, więc rezerwacja została zwolniona:\n\n{booking}\n\n"
+        "Możesz umówić się ponownie."
+    )
+    PAY_LATE_REFUNDED = (
+        "Płatność dotarła już po zwolnieniu rezerwacji, więc zwróciliśmy Twoje Stars. "
+        "Umów się ponownie."
+    )
+    PAYSUPPORT = (
+        "W sprawie płatności napisz do specjalisty w tym czacie lub naciśnij /start → "
+        "„Moje wizyty”. Zadatek jest zwracany automatycznie, jeśli odwołasz wizytę co najmniej "
+        "24 godziny wcześniej lub jeśli odwoła ją specjalista."
+    )
+    CANCELLED_REFUNDED = "Wizyta odwołana, zadatek zwrócony ⭐"
+    CANCELLED_NO_REFUND = (
+        "Wizyta odwołana. Do wizyty zostało mniej niż 24 godziny, więc zadatek nie jest zwracany."
+    )
+    DEPOSIT_RETURNED = "\n\nZadatek został zwrócony ⭐"
+
+    MY_EMPTY = "Nie masz nadchodzących wizyt."
+    MY_LIST = "Twoje wizyty:\n\n{items}\n\nAby odwołać, naciśnij wizytę poniżej."
+    CANCELLED = "Wizyta odwołana."
+    CANT_CANCEL = "Tej wizyty nie można już odwołać"
+
+    REMIND_24H = "⏰ Przypomnienie: jutro masz wizytę\n\n{booking}"
+    REMIND_2H = "⏰ Twoja wizyta za 2 godziny\n\n{booking}"
+
+    ADMIN_NEW = "🆕 Nowa wizyta\n\n{booking}\nKlient: {client}"
+    ADMIN_CANCELLED_BY_CLIENT = "❌ Klient odwołał wizytę\n\n{booking}\nKlient: {client}"
+    CLIENT_CANCELLED_BY_ADMIN = (
+        "❌ Specjalista odwołał Twoją wizytę\n\n{booking}\n\nUmów się na inny termin 🙏"
+    )
+
+    ADMIN_MENU = "⚙️ Panel specjalisty"
+    ADMIN_NO_BOOKINGS = "Brak wizyt."
+    ADMIN_SERVICES = "Usługi:\n\n{items}\n\nNaciśnij 🗑, aby ukryć usługę."
+    ADMIN_ASK_NAME = "Nazwa nowej usługi? (/cancel — anuluj)"
+    ADMIN_ASK_DURATION = "Czas trwania w minutach, wielokrotność 30 (np. 60):"
+    ADMIN_ASK_PRICE = "Cena (np. 1500):"
+    ADMIN_BAD_NUMBER = "Potrzebna jest dodatnia liczba całkowita, spróbuj ponownie"
+    ADMIN_BAD_DURATION = "Czas trwania musi być wielokrotnością 30 minut"
+    ADMIN_SERVICE_ADDED = "✅ Usługa dodana"
+    ADMIN_HOURS = "Godziny pracy:\n\n{items}\n\nWybierz dzień, aby go zmienić."
+    ADMIN_ASK_HOURS = (
+        "<b>{day}</b>\n\nWyślij godziny w formacie <code>10:00-19:00</code> "
+        "lub <code>-</code>, jeśli to dzień wolny. /cancel — anuluj"
+    )
+    ADMIN_BAD_HOURS = "Nieprawidłowy format. Przykład: <code>10:00-19:00</code> lub <code>-</code>"
+    ADMIN_HOURS_SAVED = "✅ Godziny zapisane"
+    ADMIN_DEPOSIT_OFF_LABEL = "wyłączona"
+    ADMIN_ASK_DEPOSIT = (
+        "⭐ <b>Przedpłata</b> (teraz: {current})\n\n"
+        "Klient płaci zadatek w Telegram Stars przy rezerwacji, wizyta jest potwierdzana po "
+        "płatności. Dzięki temu jest mniej nieobecności.\n\n"
+        "Wyślij kwotę w ⭐ (np. <code>50</code>) lub <code>0</code>, aby wyłączyć. "
+        "/cancel — anuluj"
+    )
+    ADMIN_BAD_DEPOSIT = "Potrzebna jest liczba całkowita od 0 do {max}"
+    ADMIN_DEPOSIT_ON = "✅ Przedpłata włączona: {stars} ⭐"
+    ADMIN_DEPOSIT_OFF = "✅ Przedpłata wyłączona"
+    ADMIN_CANCELLED = "Wizyta odwołana, klient otrzymał powiadomienie."
+    ACTION_CANCELLED = "Anulowano."
+
+
+TEXTS: dict[str, Ru] = {"uk": Uk(), "ru": Ru(), "pl": Pl(), "en": En()}

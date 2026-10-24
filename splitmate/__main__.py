@@ -8,7 +8,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import BotCommand, BotCommandScopeAllGroupChats, ErrorEvent
 
 from shared.db import init_db
-from shared.i18n import RUSSIAN_SPEAKING, LangMiddleware
+from shared.i18n import LangMiddleware, command_locales
 from shared.log_setup import setup_logging
 from shared.middlewares import DbSessionMiddleware
 from splitmate.config import SplitMateSettings
@@ -33,8 +33,9 @@ def group_commands(t: Ru) -> list[BotCommand]:
 
 
 async def set_commands(bot: Bot) -> None:
-    # English by default, Russian for the same app languages `detect` maps to Russian
-    for t, codes in ((TEXTS["en"], [None]), (TEXTS["ru"], sorted(RUSSIAN_SPEAKING))):
+    # Each Telegram app language gets the command lists in the language `detect` gives it
+    for lang, codes in command_locales().items():
+        t = TEXTS[lang]
         for code in codes:
             await bot.set_my_commands(
                 group_commands(t), scope=BotCommandScopeAllGroupChats(), language_code=code

@@ -1,5 +1,5 @@
 """User-facing texts, one class per language.
-English subclasses Russian; tests check that it overrides every text."""
+Other languages subclass Russian; tests check that they override every text."""
 
 from html import escape
 
@@ -14,7 +14,7 @@ def with_description(description: str) -> str:
 
 class Ru:
     LANG = "ru"
-    DEFAULT_CURRENCY = "₽"
+    DEFAULT_CURRENCY = "₴"
 
     # --- Buttons ---
     BTN_JOIN = "🙋 Я участвую"
@@ -22,7 +22,6 @@ class Ru:
     BTN_DELETE = "🗑 Удалить"
     BTN_DONE = "Готово"
     BTN_ADD_TO_GROUP = "➕ Добавить в группу"
-    BTN_LANGUAGE = "🌐 Language / Язык"
 
     # --- Commands ---
     CMD_ADD = "Записать расход: /add 3000 такси"
@@ -53,7 +52,6 @@ class Ru:
         "Ещё: /history последние траты, /currency валюта, /language язык, /help подсказка"
     )
     ONLY_GROUPS = "Я работаю в групповых чатах. Добавьте меня в группу кнопкой ниже 👇"
-    CHOOSE_LANGUAGE = "Выберите язык бота в этом чате / Choose the bot language for this chat:"
     LANGUAGE_SET = "Готово, в этом чате я говорю по-русски 🇷🇺"
 
     JOINED = "🙋 {name} участвует в расходах"
@@ -82,7 +80,7 @@ class Ru:
     HISTORY = "🧾 <b>Последние расходы</b>\n\n{lines}"
 
     CURRENCY_USAGE = (
-        "Укажите валюту: <code>/currency ₽</code>, <code>/currency $</code>, "
+        "Укажите валюту: <code>/currency ₴</code>, <code>/currency $</code>, "
         "<code>/currency €</code>"
     )
     CURRENCY_SET = "Валюта чата: {currency}"
@@ -131,7 +129,6 @@ class En(Ru):
         "Also: /history recent expenses, /currency currency, /language language, /help help"
     )
     ONLY_GROUPS = "I work in group chats. Add me to a group with the button below 👇"
-    CHOOSE_LANGUAGE = "Choose the bot language for this chat / Выберите язык бота в этом чате:"
     LANGUAGE_SET = "Done, I speak English in this chat now 🇬🇧"
 
     JOINED = "🙋 {name} is in"
@@ -161,7 +158,7 @@ class En(Ru):
 
     CURRENCY_USAGE = (
         "Specify the currency: <code>/currency $</code>, <code>/currency €</code>, "
-        "<code>/currency ₽</code>"
+        "<code>/currency ₴</code>"
     )
     CURRENCY_SET = "Chat currency: {currency}"
 
@@ -171,4 +168,161 @@ class En(Ru):
     INLINE_PRIVATE = "I record these messages only in groups I'm a member of"
 
 
-TEXTS: dict[str, Ru] = {"ru": Ru(), "en": En()}
+class Uk(Ru):
+    LANG = "uk"
+    DEFAULT_CURRENCY = "₴"
+
+    BTN_JOIN = "🙋 Я з вами"
+    BTN_PEOPLE = "👥 Хто бере участь"
+    BTN_DELETE = "🗑 Видалити"
+    BTN_DONE = "Готово"
+    BTN_ADD_TO_GROUP = "➕ Додати в групу"
+
+    CMD_ADD = "Записати витрату: /add 300 таксі"
+    CMD_BALANCE = "Хто кому винен"
+    CMD_HISTORY = "Останні витрати"
+    CMD_JOIN = "Брати участь у витратах"
+    CMD_MEMBERS = "Учасники"
+    CMD_CURRENCY = "Валюта чату"
+    CMD_LANGUAGE = "Мова бота"
+    CMD_HELP = "Як користуватися"
+    CMD_START = "Як почати"
+
+    WELCOME_PRIVATE = (
+        "Привіт! Я <b>SplitMates</b> 💸\n\n"
+        "Я рахую, хто кому винен у подорожах, між сусідами по квартирі та за спільні "
+        "покупки.\n\n"
+        "<b>Як почати:</b>\n"
+        "1. Додайте мене в груповий чат кнопкою нижче\n"
+        "2. Кожен учасник натискає «🙋 Я з вами»\n"
+        "3. Записуйте витрати: <code>/add 300 таксі</code>\n"
+        "4. <code>/balance</code> покаже, хто кому скільки переказати, за мінімум переказів"
+    )
+    WELCOME_GROUP = (
+        "Привіт, я <b>SplitMates</b> 💸 Порахую, хто кому винен.\n\n"
+        "1. Кожен, хто бере участь у витратах, натисніть «🙋 Я з вами»\n"
+        "2. Записуйте витрати: <code>/add 300 таксі</code>\n"
+        "   або швидше, просто в полі введення: <code>@{bot} 300 таксі</code>\n"
+        "3. <code>/balance</code> покаже, хто кому скільки переказати\n\n"
+        "Ще: /history останні витрати, /currency валюта, /language мова, /help підказка"
+    )
+    ONLY_GROUPS = "Я працюю в групових чатах. Додайте мене в групу кнопкою нижче 👇"
+    LANGUAGE_SET = "Готово, у цьому чаті я розмовляю українською 🇺🇦"
+
+    JOINED = "🙋 {name} бере участь у витратах"
+    ALREADY_JOINED = "Ви вже берете участь 👍"
+    MEMBERS = "👥 Учасники: {names}"
+
+    ADD_USAGE = "Напишіть суму і за що: <code>/add 300 таксі</code>"
+    EXPENSE = (
+        "💸 <b>{payer}</b> заплатив(ла) <b>{amount}</b>{description}\n"
+        "Ділимо на {count}: {names}\n"
+        "Кожному: {each}"
+    )
+    EXPENSE_DELETED = "🗑 Витрату {amount}{description} видалено"
+    CHOOSE_PARTICIPANTS = "Хто бере участь у витраті {amount}{description}?"
+    NEED_ONE_PARTICIPANT = "Потрібен хоча б один учасник"
+    ONLY_PAYER = "Змінювати витрату може лише той, хто її записав"
+
+    BALANCE_EMPTY = "✅ Усі в розрахунку, ніхто нікому не винен"
+    BALANCE = "📊 <b>Баланс</b>\n\n{lines}\n\n💸 <b>Щоб розрахуватися:</b>\n{transfers}"
+    BALANCE_HINT = "\n\nКоли борг повернули, натисніть кнопку з цим переказом."
+    SETTLED = "✅ {debtor} повернув(ла) {creditor} {amount}"
+    SETTLE_STALE = "Баланс уже змінився, відкрийте /balance знову"
+    SETTLE_NOT_YOURS = "Позначити переказ може лише той, хто платить, або той, хто отримує"
+
+    HISTORY_EMPTY = "Витрат поки немає. Додайте першу: <code>/add 300 таксі</code>"
+    HISTORY = "🧾 <b>Останні витрати</b>\n\n{lines}"
+
+    CURRENCY_USAGE = (
+        "Вкажіть валюту: <code>/currency ₴</code>, <code>/currency $</code>, "
+        "<code>/currency €</code>"
+    )
+    CURRENCY_SET = "Валюта чату: {currency}"
+
+    INLINE_TITLE = "💸 Записати витрату: {amount}"
+    INLINE_DESCRIPTION = "{description}Надішліть у групу, де є бот"
+    INLINE_HELP_BUTTON = "Як записати витрату?"
+    INLINE_PRIVATE = "Такі повідомлення я записую лише в групах, де я є"
+
+
+class Pl(Ru):
+    LANG = "pl"
+    DEFAULT_CURRENCY = "zł"
+
+    BTN_JOIN = "🙋 Wchodzę"
+    BTN_PEOPLE = "👥 Kto się dorzuca"
+    BTN_DELETE = "🗑 Usuń"
+    BTN_DONE = "Gotowe"
+    BTN_ADD_TO_GROUP = "➕ Dodaj do grupy"
+
+    CMD_ADD = "Dodaj wydatek: /add 50 taxi"
+    CMD_BALANCE = "Kto komu wisi"
+    CMD_HISTORY = "Ostatnie wydatki"
+    CMD_JOIN = "Dołącz do rozliczeń"
+    CMD_MEMBERS = "Uczestnicy"
+    CMD_CURRENCY = "Waluta czatu"
+    CMD_LANGUAGE = "Język bota"
+    CMD_HELP = "Jak używać"
+    CMD_START = "Jak zacząć"
+
+    WELCOME_PRIVATE = (
+        "Cześć! Jestem <b>SplitMates</b> 💸\n\n"
+        "Liczę, kto komu ile oddać: na wyjazdach, między współlokatorami i przy wspólnych "
+        "zakupach.\n\n"
+        "<b>Jak zacząć:</b>\n"
+        "1. Dodaj mnie do czatu grupowego przyciskiem poniżej\n"
+        "2. Każdy uczestnik naciska „🙋 Wchodzę”\n"
+        "3. Zapisujcie wydatki: <code>/add 50 taxi</code>\n"
+        "4. <code>/balance</code> pokaże, kto komu ile przelać, przy jak najmniejszej "
+        "liczbie przelewów"
+    )
+    WELCOME_GROUP = (
+        "Cześć, jestem <b>SplitMates</b> 💸 Policzę, kto komu ile winien.\n\n"
+        "1. Każdy, kto dzieli wydatki, niech naciśnie „🙋 Wchodzę”\n"
+        "2. Zapisujcie wydatki: <code>/add 50 taxi</code>\n"
+        "   albo szybciej, prosto w polu wiadomości: <code>@{bot} 50 taxi</code>\n"
+        "3. <code>/balance</code> pokaże, kto komu ile przelać\n\n"
+        "Poza tym: /history ostatnie wydatki, /currency waluta, /language język, /help pomoc"
+    )
+    ONLY_GROUPS = "Działam w czatach grupowych. Dodaj mnie do grupy przyciskiem poniżej 👇"
+    LANGUAGE_SET = "Gotowe, w tym czacie mówię po polsku 🇵🇱"
+
+    JOINED = "🙋 {name} dzieli wydatki"
+    ALREADY_JOINED = "Już jesteś w rozliczeniach 👍"
+    MEMBERS = "👥 Uczestnicy: {names}"
+
+    ADD_USAGE = "Podaj kwotę i za co: <code>/add 50 taxi</code>"
+    EXPENSE = (
+        "💸 <b>{payer}</b> zapłacił(a) <b>{amount}</b>{description}\n"
+        "Dzielimy na {count}: {names}\n"
+        "Na osobę: {each}"
+    )
+    EXPENSE_DELETED = "🗑 Wydatek {amount}{description} usunięty"
+    CHOOSE_PARTICIPANTS = "Kto dzieli wydatek {amount}{description}?"
+    NEED_ONE_PARTICIPANT = "Potrzebny jest co najmniej jeden uczestnik"
+    ONLY_PAYER = "Wydatek może zmienić tylko osoba, która go dodała"
+
+    BALANCE_EMPTY = "✅ Wszyscy są rozliczeni, nikt nikomu nic nie wisi"
+    BALANCE = "📊 <b>Bilans</b>\n\n{lines}\n\n💸 <b>Aby się rozliczyć:</b>\n{transfers}"
+    BALANCE_HINT = "\n\nGdy dług zostanie oddany, naciśnij przycisk z tym przelewem."
+    SETTLED = "✅ {debtor} oddał(a) {creditor} {amount}"
+    SETTLE_STALE = "Bilans się zmienił, otwórz /balance ponownie"
+    SETTLE_NOT_YOURS = "Przelew może oznaczyć tylko osoba, która płaci, albo ta, która dostaje"
+
+    HISTORY_EMPTY = "Nie ma jeszcze wydatków. Dodaj pierwszy: <code>/add 50 taxi</code>"
+    HISTORY = "🧾 <b>Ostatnie wydatki</b>\n\n{lines}"
+
+    CURRENCY_USAGE = (
+        "Podaj walutę: <code>/currency zł</code>, <code>/currency €</code>, "
+        "<code>/currency $</code>"
+    )
+    CURRENCY_SET = "Waluta czatu: {currency}"
+
+    INLINE_TITLE = "💸 Dodaj wydatek: {amount}"
+    INLINE_DESCRIPTION = "{description}Wyślij do grupy, w której jest bot"
+    INLINE_HELP_BUTTON = "Jak dodać wydatek?"
+    INLINE_PRIVATE = "Takie wiadomości zapisuję tylko w grupach, w których jestem"
+
+
+TEXTS: dict[str, Ru] = {"uk": Uk(), "ru": Ru(), "pl": Pl(), "en": En()}

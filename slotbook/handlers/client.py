@@ -7,7 +7,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.i18n import SetLang, lang_keyboard
+from shared.i18n import CHOOSE_LANGUAGE, SetLang, lang_keyboard
 from slotbook import keyboards as kb
 from slotbook import payments, repo, scheduling
 from slotbook.i18n import notify_admins
@@ -38,12 +38,12 @@ async def home(cb: CallbackQuery, admin_ids: set[int], t: Ru) -> None:
 
 @router.message(Command("language"))
 async def language_cmd(message: Message, t: Ru) -> None:
-    await message.answer(t.CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
+    await message.answer(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
 
 
 @router.callback_query(kb.Menu.filter(F.action == "lang"))
 async def language_menu(cb: CallbackQuery, t: Ru) -> None:
-    await cb.message.edit_text(t.CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
+    await cb.message.edit_text(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
     await cb.answer()
 
 

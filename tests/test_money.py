@@ -32,9 +32,9 @@ def test_inline_amount_roundtrip(minor):
 
 
 def test_fmt_money():
-    assert fmt_money(125050) == "1 250,50 ₽"
+    assert fmt_money(125050) == "1 250,50 ₴"
     assert fmt_money(300000, "$") == "3 000 $"
-    assert fmt_money(-500) == "-5 ₽"
+    assert fmt_money(-500) == "-5 ₴"
 
 
 def test_split_equally_adds_up_exactly():

@@ -5,6 +5,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from shared.i18n import LANGUAGE_BUTTON
 from slotbook.models import Booking, Service
 from slotbook.texts import Ru
 
@@ -60,7 +61,7 @@ def main_menu(t: Ru, is_admin: bool) -> InlineKeyboardMarkup:
     b.button(text=t.BTN_MY, callback_data=Menu(action="my"))
     if is_admin:
         b.button(text=t.BTN_ADMIN, callback_data=Admin(action="menu"))
-    b.button(text=t.BTN_LANGUAGE, callback_data=Menu(action="lang"))
+    b.button(text=LANGUAGE_BUTTON, callback_data=Menu(action="lang"))
     b.adjust(1)
     return b.as_markup()
 
@@ -74,7 +75,7 @@ def back_home(t: Ru) -> InlineKeyboardMarkup:
 def services(t: Ru, items: list[Service]) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for s in items:
-        b.button(text=f"{s.name} · {s.price} ₽", callback_data=Svc(id=s.id))
+        b.button(text=f"{s.name} · {s.price} {t.currency}", callback_data=Svc(id=s.id))
     b.button(text=t.BTN_HOME, callback_data=Menu(action="home"))
     b.adjust(1)
     return b.as_markup()

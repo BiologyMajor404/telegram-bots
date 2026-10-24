@@ -15,7 +15,7 @@ class Chat(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     title: Mapped[str] = mapped_column(String(256))
-    currency: Mapped[str] = mapped_column(String(8), default="₽")
+    currency: Mapped[str] = mapped_column(String(8), default="₴")
     lang: Mapped[str] = mapped_column(String(8), default="ru", server_default="ru")
 
 

@@ -8,7 +8,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import BotCommand, ErrorEvent
 
 from shared.db import init_db
-from shared.i18n import RUSSIAN_SPEAKING, LangMiddleware
+from shared.i18n import LangMiddleware, command_locales
 from shared.log_setup import setup_logging
 from shared.middlewares import DbSessionMiddleware
 from shared.storage import make_storage
@@ -43,15 +43,16 @@ def commands(t: Ru) -> list[BotCommand]:
 
 
 async def set_commands(bot: Bot) -> None:
-    # English by default, Russian for the same app languages `detect` maps to Russian
-    await bot.set_my_commands(commands(TEXTS["en"]))
-    for code in RUSSIAN_SPEAKING:
-        await bot.set_my_commands(commands(TEXTS["ru"]), language_code=code)
+    # Each Telegram app language gets the command list in the language `detect` gives it
+    for lang, codes in command_locales().items():
+        for code in codes:
+            await bot.set_my_commands(commands(TEXTS[lang]), language_code=code)
 
 
 async def main() -> None:
     settings = SlotBookSettings()
     setup_logging(settings.log_level)
+    Ru.currency = settings.currency  # shared by all language subclasses
     if not settings.admin_ids:
         log.warning("SLOTBOOK_ADMIN_IDS is empty: nobody will get the master panel")
 

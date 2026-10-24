@@ -5,7 +5,7 @@ from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, C
 from aiogram.types import CallbackQuery, ChatMemberUpdated, Message, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.i18n import SetLang, lang_keyboard
+from shared.i18n import CHOOSE_LANGUAGE, SetLang, lang_keyboard
 from splitmate import keyboards as kb
 from splitmate import repo
 from splitmate.i18n import GROUPS
@@ -40,7 +40,7 @@ async def help_cmd(message: Message, bot: Bot, t: Ru) -> None:
 
 @router.message(Command("language"))
 async def language_cmd(message: Message, t: Ru) -> None:
-    await message.answer(t.CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
+    await message.answer(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
 
 
 @router.callback_query(SetLang.filter())

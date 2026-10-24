@@ -25,7 +25,7 @@ def parse_amount(text: str) -> tuple[int, str] | None:
     return minor, description
 
 
-def fmt_money(minor: int, currency: str = "₽") -> str:
+def fmt_money(minor: int, currency: str = "₴") -> str:
     whole, frac = divmod(abs(minor), 100)
     text = f"{whole:,}".replace(",", " ")
     if frac:
