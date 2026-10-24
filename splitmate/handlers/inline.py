@@ -10,9 +10,9 @@ from aiogram.types import (
     InputTextMessageContent,
 )
 
-from splitmate import texts
 from splitmate.handlers.group import INLINE_PREFIX
 from splitmate.money import fmt_money, parse_amount
+from splitmate.texts import Ru
 
 router = Router(name="inline")
 
@@ -24,8 +24,8 @@ def plain_amount(minor: int) -> str:
 
 
 @router.inline_query()
-async def inline_expense(query: InlineQuery) -> None:
-    help_button = InlineQueryResultsButton(text=texts.INLINE_HELP_BUTTON, start_parameter="help")
+async def inline_expense(query: InlineQuery, t: Ru) -> None:
+    help_button = InlineQueryResultsButton(text=t.INLINE_HELP_BUTTON, start_parameter="help")
     parsed = parse_amount(query.query)
     if parsed is None:
         await query.answer([], cache_time=0, is_personal=True, button=help_button)
@@ -34,8 +34,8 @@ async def inline_expense(query: InlineQuery) -> None:
     message = f"{INLINE_PREFIX}{plain_amount(amount)} {description}".strip()
     result = InlineQueryResultArticle(
         id=hashlib.md5(message.encode()).hexdigest(),
-        title=texts.INLINE_TITLE.format(amount=fmt_money(amount, "").strip()),
-        description=texts.INLINE_DESCRIPTION.format(
+        title=t.INLINE_TITLE.format(amount=fmt_money(amount, "").strip()),
+        description=t.INLINE_DESCRIPTION.format(
             description=f"{description}. " if description else ""
         ),
         input_message_content=InputTextMessageContent(message_text=message),

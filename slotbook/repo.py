@@ -5,7 +5,8 @@ from datetime import datetime, time
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from slotbook.models import Booking, BookingStatus, Service, Setting, WorkDay
+from slotbook.models import Booking, BookingStatus, Service, Setting, UserPrefs, WorkDay
+from slotbook.texts import TEXTS, Ru
 
 DEPOSIT_KEY = "deposit_stars"
 
@@ -52,6 +53,24 @@ async def hide_service(session: AsyncSession, service_id: int) -> None:
     if service:
         service.is_active = False
         await session.commit()
+
+
+# --- Language ---
+
+
+async def get_lang(session: AsyncSession, user_id: int) -> str | None:
+    prefs = await session.get(UserPrefs, user_id)
+    return prefs.lang if prefs else None
+
+
+async def set_lang(session: AsyncSession, user_id: int, lang: str) -> None:
+    await session.merge(UserPrefs(id=user_id, lang=lang))
+    await session.commit()
+
+
+async def texts_for(session: AsyncSession, user_id: int) -> Ru:
+    """Texts for messages the bot sends on its own (reminders, notifications)."""
+    return TEXTS[await get_lang(session, user_id) or "ru"]
 
 
 # --- Settings ---

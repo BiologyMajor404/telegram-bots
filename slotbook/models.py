@@ -29,6 +29,16 @@ class WorkDay(Base):
     end: Mapped[time | None]
 
 
+class UserPrefs(Base):
+    """Per-user settings. The language is stored so background messages
+    (reminders, notifications) go out in the user's language."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    lang: Mapped[str] = mapped_column(String(8))
+
+
 class Setting(Base):
     """Key-value settings the master changes from the bot (e.g. the deposit size)."""
 

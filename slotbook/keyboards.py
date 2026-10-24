@@ -5,14 +5,14 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from slotbook import texts
 from slotbook.models import Booking, Service
+from slotbook.texts import Ru
 
 # --- Callback data. Prefixes are short: Telegram limits callback data to 64 bytes ---
 
 
 class Menu(CallbackData, prefix="m"):
-    action: str  # home | book | my
+    action: str  # home | book | my | lang
 
 
 class Svc(CallbackData, prefix="s"):
@@ -54,65 +54,66 @@ def int_to_day(v: int) -> date:
 # --- Client keyboards ---
 
 
-def main_menu(is_admin: bool) -> InlineKeyboardMarkup:
+def main_menu(t: Ru, is_admin: bool) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="📅 Записаться", callback_data=Menu(action="book"))
-    b.button(text="🗂 Мои записи", callback_data=Menu(action="my"))
+    b.button(text=t.BTN_BOOK, callback_data=Menu(action="book"))
+    b.button(text=t.BTN_MY, callback_data=Menu(action="my"))
     if is_admin:
-        b.button(text="⚙️ Панель мастера", callback_data=Admin(action="menu"))
+        b.button(text=t.BTN_ADMIN, callback_data=Admin(action="menu"))
+    b.button(text=t.BTN_LANGUAGE, callback_data=Menu(action="lang"))
     b.adjust(1)
     return b.as_markup()
 
 
-def back_home() -> InlineKeyboardMarkup:
+def back_home(t: Ru) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="◀️ В меню", callback_data=Menu(action="home"))
+    b.button(text=t.BTN_HOME, callback_data=Menu(action="home"))
     return b.as_markup()
 
 
-def services(items: list[Service]) -> InlineKeyboardMarkup:
+def services(t: Ru, items: list[Service]) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for s in items:
         b.button(text=f"{s.name} · {s.price} ₽", callback_data=Svc(id=s.id))
-    b.button(text="◀️ В меню", callback_data=Menu(action="home"))
+    b.button(text=t.BTN_HOME, callback_data=Menu(action="home"))
     b.adjust(1)
     return b.as_markup()
 
 
-def days(service_id: int, items: list[date]) -> InlineKeyboardMarkup:
+def days(t: Ru, service_id: int, items: list[date]) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for d in items:
-        b.button(text=texts.fmt_day(d), callback_data=Day(svc=service_id, day=day_to_int(d)))
+        b.button(text=t.fmt_day(d), callback_data=Day(svc=service_id, day=day_to_int(d)))
     b.adjust(2)
-    b.row(InlineKeyboardButton(text="◀️ Услуги", callback_data=Menu(action="book").pack()))
+    b.row(InlineKeyboardButton(text=t.BTN_SERVICES, callback_data=Menu(action="book").pack()))
     return b.as_markup()
 
 
-def times(service_id: int, slots: list[datetime], tz: ZoneInfo) -> InlineKeyboardMarkup:
+def times(t: Ru, service_id: int, slots: list[datetime], tz: ZoneInfo) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    for t in slots:
+    for slot in slots:
         b.button(
-            text=t.astimezone(tz).strftime("%H:%M"),
-            callback_data=Slot(svc=service_id, ts=int(t.timestamp())),
+            text=slot.astimezone(tz).strftime("%H:%M"),
+            callback_data=Slot(svc=service_id, ts=int(slot.timestamp())),
         )
     b.adjust(4)
-    b.row(InlineKeyboardButton(text="◀️ Дни", callback_data=Svc(id=service_id).pack()))
+    b.row(InlineKeyboardButton(text=t.BTN_DAYS, callback_data=Svc(id=service_id).pack()))
     return b.as_markup()
 
 
-def confirm(service_id: int, ts: int, day: date) -> InlineKeyboardMarkup:
+def confirm(t: Ru, service_id: int, ts: int, day: date) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="✅ Подтвердить", callback_data=Confirm(svc=service_id, ts=ts))
-    b.button(text="◀️ Другое время", callback_data=Day(svc=service_id, day=day_to_int(day)))
+    b.button(text=t.BTN_CONFIRM, callback_data=Confirm(svc=service_id, ts=ts))
+    b.button(text=t.BTN_OTHER_TIME, callback_data=Day(svc=service_id, day=day_to_int(day)))
     b.adjust(1)
     return b.as_markup()
 
 
-def my_bookings(items: list[Booking], tz: ZoneInfo) -> InlineKeyboardMarkup:
+def my_bookings(t: Ru, items: list[Booking], tz: ZoneInfo) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for bk in items:
-        b.button(text=f"❌ {texts.fmt_dt(bk.starts_at, tz)}", callback_data=CancelBooking(id=bk.id))
-    b.button(text="◀️ В меню", callback_data=Menu(action="home"))
+        b.button(text=f"❌ {t.fmt_dt(bk.starts_at, tz)}", callback_data=CancelBooking(id=bk.id))
+    b.button(text=t.BTN_HOME, callback_data=Menu(action="home"))
     b.adjust(1)
     return b.as_markup()
 
@@ -120,25 +121,25 @@ def my_bookings(items: list[Booking], tz: ZoneInfo) -> InlineKeyboardMarkup:
 # --- Admin keyboards ---
 
 
-def admin_menu() -> InlineKeyboardMarkup:
+def admin_menu(t: Ru) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="📋 Записи на сегодня", callback_data=Admin(action="list", id=1))
-    b.button(text="🗓 Записи на неделю", callback_data=Admin(action="list", id=7))
-    b.button(text="💈 Услуги", callback_data=Admin(action="services"))
-    b.button(text="🕘 Рабочие часы", callback_data=Admin(action="hours"))
-    b.button(text="⭐ Предоплата", callback_data=Admin(action="deposit"))
-    b.button(text="◀️ В меню", callback_data=Menu(action="home"))
+    b.button(text=t.BTN_TODAY, callback_data=Admin(action="list", id=1))
+    b.button(text=t.BTN_WEEK, callback_data=Admin(action="list", id=7))
+    b.button(text=t.BTN_ADMIN_SERVICES, callback_data=Admin(action="services"))
+    b.button(text=t.BTN_HOURS, callback_data=Admin(action="hours"))
+    b.button(text=t.BTN_DEPOSIT, callback_data=Admin(action="deposit"))
+    b.button(text=t.BTN_HOME, callback_data=Menu(action="home"))
     b.adjust(1)
     return b.as_markup()
 
 
-def admin_back() -> InlineKeyboardMarkup:
+def admin_back(t: Ru) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="◀️ Панель мастера", callback_data=Admin(action="menu"))
+    b.button(text=t.BTN_ADMIN_BACK, callback_data=Admin(action="menu"))
     return b.as_markup()
 
 
-def admin_bookings(items: list[Booking], tz: ZoneInfo) -> InlineKeyboardMarkup:
+def admin_bookings(t: Ru, items: list[Booking], tz: ZoneInfo) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for bk in items[:30]:
         local = bk.starts_at.astimezone(tz)
@@ -146,26 +147,25 @@ def admin_bookings(items: list[Booking], tz: ZoneInfo) -> InlineKeyboardMarkup:
             text=f"❌ {local:%d.%m %H:%M} {bk.user_name}",
             callback_data=Admin(action="cancel", id=bk.id),
         )
-    b.button(text="◀️ Панель мастера", callback_data=Admin(action="menu"))
+    b.button(text=t.BTN_ADMIN_BACK, callback_data=Admin(action="menu"))
     b.adjust(1)
     return b.as_markup()
 
 
-def admin_services(items: list[Service]) -> InlineKeyboardMarkup:
+def admin_services(t: Ru, items: list[Service]) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for s in items:
         b.button(text=f"🗑 {s.name}", callback_data=Admin(action="svc_hide", id=s.id))
-    b.button(text="➕ Добавить услугу", callback_data=Admin(action="svc_add"))
-    b.button(text="◀️ Панель мастера", callback_data=Admin(action="menu"))
+    b.button(text=t.BTN_ADD_SERVICE, callback_data=Admin(action="svc_add"))
+    b.button(text=t.BTN_ADMIN_BACK, callback_data=Admin(action="menu"))
     b.adjust(1)
     return b.as_markup()
 
 
-def admin_hours() -> InlineKeyboardMarkup:
+def admin_hours(t: Ru) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for wd in range(7):
-        b.button(text=texts.WEEKDAYS_FULL[wd], callback_data=Admin(action="hours_edit", id=wd))
+        b.button(text=t.WEEKDAYS_FULL[wd], callback_data=Admin(action="hours_edit", id=wd))
     b.adjust(2)
-    b.row(InlineKeyboardButton(text="◀️ Панель мастера", callback_data=Admin(action="menu").pack()))
-
+    b.row(InlineKeyboardButton(text=t.BTN_ADMIN_BACK, callback_data=Admin(action="menu").pack()))
     return b.as_markup()

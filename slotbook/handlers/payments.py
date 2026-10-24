@@ -6,17 +6,18 @@ from aiogram.filters import Command
 from aiogram.types import Message, PreCheckoutQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.notify import notify_all
 from slotbook import keyboards as kb
-from slotbook import payments, repo, texts
+from slotbook import payments, repo
+from slotbook.i18n import notify_admins
 from slotbook.models import BookingStatus
+from slotbook.texts import Ru, user_link
 
 log = logging.getLogger(__name__)
 router = Router(name="payments")
 
 
 @router.pre_checkout_query()
-async def pre_checkout(query: PreCheckoutQuery, session: AsyncSession) -> None:
+async def pre_checkout(query: PreCheckoutQuery, session: AsyncSession, t: Ru) -> None:
     """Last check before Telegram charges the client: the hold must still be valid."""
     booking_id = payments.parse_payload(query.invoice_payload)
     booking = await repo.get_booking(session, booking_id) if booking_id else None
@@ -29,12 +30,17 @@ async def pre_checkout(query: PreCheckoutQuery, session: AsyncSession) -> None:
     if valid:
         await query.answer(ok=True)
     else:
-        await query.answer(ok=False, error_message=texts.PAY_EXPIRED)
+        await query.answer(ok=False, error_message=t.PAY_EXPIRED)
 
 
 @router.message(F.successful_payment)
 async def successful_payment(
-    message: Message, session: AsyncSession, tz: ZoneInfo, bot: Bot, admin_ids: set[int]
+    message: Message,
+    session: AsyncSession,
+    tz: ZoneInfo,
+    bot: Bot,
+    admin_ids: set[int],
+    t: Ru,
 ) -> None:
     payment = message.successful_payment
     booking_id = payments.parse_payload(payment.invoice_payload)
@@ -48,24 +54,25 @@ async def successful_payment(
         booking.payment_charge_id = payment.telegram_payment_charge_id
         await session.commit()
         await payments.refund(bot, session, booking)
-        await message.answer(texts.PAY_LATE_REFUNDED, reply_markup=kb.back_home())
+        await message.answer(t.PAY_LATE_REFUNDED, reply_markup=kb.back_home(t))
         return
 
     await repo.mark_paid(session, booking, payment.telegram_payment_charge_id)
     await message.answer(
-        texts.BOOKED.format(booking=texts.fmt_booking(booking, tz)), reply_markup=kb.back_home()
+        t.BOOKED.format(booking=t.fmt_booking(booking, tz)), reply_markup=kb.back_home(t)
     )
-    await notify_all(
+    await notify_admins(
         bot,
+        session,
         admin_ids,
-        texts.ADMIN_NEW.format(
-            booking=texts.fmt_booking(booking, tz),
-            client=texts.user_link(booking.user_id, booking.user_name),
+        lambda at: at.ADMIN_NEW.format(
+            booking=at.fmt_booking(booking, tz),
+            client=user_link(booking.user_id, booking.user_name),
         ),
     )
 
 
 @router.message(Command("paysupport"))
-async def paysupport(message: Message) -> None:
+async def paysupport(message: Message, t: Ru) -> None:
     # Telegram requires bots that accept Stars to answer /paysupport
-    await message.answer(texts.PAYSUPPORT)
+    await message.answer(t.PAYSUPPORT)

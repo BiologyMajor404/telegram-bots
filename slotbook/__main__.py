@@ -8,13 +8,16 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import BotCommand, ErrorEvent
 
 from shared.db import init_db
+from shared.i18n import RUSSIAN_SPEAKING, LangMiddleware
 from shared.log_setup import setup_logging
 from shared.middlewares import DbSessionMiddleware
 from shared.storage import make_storage
 from slotbook import repo
 from slotbook.config import SlotBookSettings
 from slotbook.handlers import admin, client, payments
+from slotbook.i18n import resolve_lang
 from slotbook.reminders import reminder_loop
+from slotbook.texts import TEXTS, Ru
 
 log = logging.getLogger("slotbook")
 
@@ -29,6 +32,21 @@ async def on_error(event: ErrorEvent) -> bool:
         return True
     log.exception("Unhandled error", exc_info=event.exception)
     return True
+
+
+def commands(t: Ru) -> list[BotCommand]:
+    return [
+        BotCommand(command="start", description=t.CMD_START),
+        BotCommand(command="language", description=t.CMD_LANGUAGE),
+        BotCommand(command="paysupport", description=t.CMD_PAYSUPPORT),
+    ]
+
+
+async def set_commands(bot: Bot) -> None:
+    # English by default, Russian for the same app languages `detect` maps to Russian
+    await bot.set_my_commands(commands(TEXTS["en"]))
+    for code in RUSSIAN_SPEAKING:
+        await bot.set_my_commands(commands(TEXTS["ru"]), language_code=code)
 
 
 async def main() -> None:
@@ -54,16 +72,12 @@ async def main() -> None:
         tz=settings.tz,
     )
     dp.update.middleware(DbSessionMiddleware(session_factory))
+    dp.update.middleware(LangMiddleware(resolve_lang, TEXTS))  # needs the DB session
     dp.errors.register(on_error)
     # Admin router goes first so its FSM steps win over the client fallback handler
     dp.include_routers(admin.router, payments.router, client.router)
 
-    await bot.set_my_commands(
-        [
-            BotCommand(command="start", description="Записаться"),
-            BotCommand(command="paysupport", description="Вопросы по оплате"),
-        ]
-    )
+    await set_commands(bot)
     reminders = asyncio.create_task(reminder_loop(bot, session_factory, settings.tz))
     log.info("SlotBook started")
     try:

@@ -4,6 +4,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from splitmate.models import Member
 from splitmate.money import Transfer, fmt_money
+from splitmate.texts import Ru
 
 # Prefixes are short: Telegram limits callback data to 64 bytes
 
@@ -27,31 +28,33 @@ class Settle(CallbackData, prefix="st"):
     creditor: int
 
 
-def add_to_group(bot_username: str) -> InlineKeyboardMarkup:
+def add_to_group(t: Ru, bot_username: str) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="➕ Добавить в группу", url=f"https://t.me/{bot_username}?startgroup=start")
+    b.button(text=t.BTN_ADD_TO_GROUP, url=f"https://t.me/{bot_username}?startgroup=start")
     return b.as_markup()
 
 
-def join() -> InlineKeyboardMarkup:
+def join(t: Ru) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="🙋 Я участвую", callback_data=Join())
+    b.button(text=t.BTN_JOIN, callback_data=Join())
     return b.as_markup()
 
 
-def expense(expense_id: int) -> InlineKeyboardMarkup:
+def expense(t: Ru, expense_id: int) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="👥 Кто участвует", callback_data=ExpenseAction(action="people", id=expense_id))
-    b.button(text="🗑 Удалить", callback_data=ExpenseAction(action="delete", id=expense_id))
+    b.button(text=t.BTN_PEOPLE, callback_data=ExpenseAction(action="people", id=expense_id))
+    b.button(text=t.BTN_DELETE, callback_data=ExpenseAction(action="delete", id=expense_id))
     return b.as_markup()
 
 
-def participants(expense_id: int, people: list[Member], selected: set[int]) -> InlineKeyboardMarkup:
+def participants(
+    t: Ru, expense_id: int, people: list[Member], selected: set[int]
+) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for m in people:
         mark = "✅" if m.user_id in selected else "▫️"
         b.button(text=f"{mark} {m.name}", callback_data=Toggle(expense=expense_id, user=m.user_id))
-    b.button(text="Готово", callback_data=ExpenseAction(action="done", id=expense_id))
+    b.button(text=t.BTN_DONE, callback_data=ExpenseAction(action="done", id=expense_id))
     b.adjust(2)
     return b.as_markup()
 

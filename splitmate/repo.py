@@ -6,14 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from splitmate.models import Chat, Expense, Member, Settlement, Share
 from splitmate.money import net_balances, split_equally
+from splitmate.texts import TEXTS
 
 HISTORY_LIMIT = 10
 
 
-async def ensure_chat(session: AsyncSession, chat_id: int, title: str | None) -> Chat:
+async def ensure_chat(
+    session: AsyncSession, chat_id: int, title: str | None, lang: str = "ru"
+) -> Chat:
+    """Get the chat, creating it on first contact with `lang` and that language's currency."""
     chat = await session.get(Chat, chat_id)
     if chat is None:
-        chat = Chat(id=chat_id, title=title or "", currency="₽")
+        chat = Chat(id=chat_id, title=title or "", lang=lang, currency=TEXTS[lang].DEFAULT_CURRENCY)
         session.add(chat)
         await session.commit()
     elif title and chat.title != title:
@@ -46,6 +50,11 @@ async def members(session: AsyncSession, chat_id: int) -> list[Member]:
 
 async def names(session: AsyncSession, chat_id: int) -> dict[int, str]:
     return {m.user_id: m.name for m in await members(session, chat_id)}
+
+
+async def set_chat_lang(session: AsyncSession, chat: Chat, lang: str) -> None:
+    chat.lang = lang
+    await session.commit()
 
 
 async def set_currency(session: AsyncSession, chat: Chat, currency: str) -> None:

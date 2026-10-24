@@ -9,8 +9,8 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.types import LabeledPrice
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from slotbook import texts
 from slotbook.models import Booking
+from slotbook.texts import Ru
 
 log = logging.getLogger(__name__)
 
@@ -45,16 +45,16 @@ def refund_due(booking: Booking, now: datetime, by_master: bool) -> bool:
     return by_master or booking.starts_at - now >= FREE_CANCEL_BEFORE
 
 
-async def send_invoice(bot: Bot, booking: Booking, tz: ZoneInfo) -> None:
+async def send_invoice(bot: Bot, booking: Booking, tz: ZoneInfo, t: Ru) -> None:
     await bot.send_invoice(
         chat_id=booking.user_id,
-        title=texts.INVOICE_TITLE,
-        description=texts.INVOICE_DESCRIPTION.format(
-            service=booking.service.name, dt=texts.fmt_dt(booking.starts_at, tz)
+        title=t.INVOICE_TITLE,
+        description=t.INVOICE_DESCRIPTION.format(
+            service=booking.service.name, dt=t.fmt_dt(booking.starts_at, tz)
         ),
         payload=invoice_payload(booking.id),
         currency=STARS,
-        prices=[LabeledPrice(label=texts.INVOICE_TITLE, amount=booking.deposit_stars)],
+        prices=[LabeledPrice(label=t.INVOICE_TITLE, amount=booking.deposit_stars)],
     )
 
 

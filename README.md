@@ -1,7 +1,12 @@
 # Telegram Bots Portfolio
 
 A set of production-style Telegram bots that solve real everyday problems.
-All bots share one core (config, database, logging, middlewares) and run with a single `docker compose up`.
+All bots share one core (config, database, logging, middlewares, i18n) and run with a single `docker compose up`.
+
+🌐 **Every bot speaks Russian and English.** The language is picked from the user's Telegram app
+language and can be switched with `/language`. SlotBook remembers it per user (so reminders arrive
+in the right language), SplitMates per group chat. A test fails if any text is left untranslated
+or a translation loses a `{placeholder}`.
 
 | Bot | What it does | Status |
 |---|---|---|

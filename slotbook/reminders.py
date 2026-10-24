@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from shared.notify import safe_send
-from slotbook import payments, repo, texts
+from slotbook import payments, repo
 from slotbook.models import Booking, BookingStatus
 from slotbook.scheduling import now_utc
 
@@ -16,18 +16,18 @@ log = logging.getLogger(__name__)
 
 CHECK_INTERVAL_SEC = 60
 
-# (flag column, how long before the visit, text). The 2h check runs first: if both are
-# due at once (booking made late), only the 2h reminder is sent.
+# (flag column, how long before the visit, text attribute). The 2h check runs first: if both
+# are due at once (booking made late), only the 2h reminder is sent.
 REMINDERS = [
-    (Booking.reminded_2h, timedelta(hours=2), texts.REMIND_2H),
-    (Booking.reminded_24h, timedelta(hours=24), texts.REMIND_24H),
+    (Booking.reminded_2h, timedelta(hours=2), "REMIND_2H"),
+    (Booking.reminded_24h, timedelta(hours=24), "REMIND_24H"),
 ]
 
 
 async def send_due_reminders(bot: Bot, session_factory: async_sessionmaker, tz: ZoneInfo) -> None:
     now = now_utc()
     async with session_factory() as session:
-        for flag, before, template in REMINDERS:
+        for flag, before, text_name in REMINDERS:
             due = await session.scalars(
                 select(Booking).where(
                     Booking.status == BookingStatus.ACTIVE,
@@ -37,8 +37,10 @@ async def send_due_reminders(bot: Bot, session_factory: async_sessionmaker, tz: 
                 )
             )
             for booking in due:
+                t = await repo.texts_for(session, booking.user_id)
+                template = getattr(t, text_name)
                 await safe_send(
-                    bot, booking.user_id, template.format(booking=texts.fmt_booking(booking, tz))
+                    bot, booking.user_id, template.format(booking=t.fmt_booking(booking, tz))
                 )
                 setattr(booking, flag.key, True)
                 if flag is Booking.reminded_2h:
@@ -49,10 +51,9 @@ async def send_due_reminders(bot: Bot, session_factory: async_sessionmaker, tz: 
 async def release_unpaid_holds(bot: Bot, session_factory: async_sessionmaker, tz: ZoneInfo) -> None:
     async with session_factory() as session:
         for booking in await repo.expire_unpaid(session, now_utc() - payments.HOLD_TIME):
+            t = await repo.texts_for(session, booking.user_id)
             await safe_send(
-                bot,
-                booking.user_id,
-                texts.PAY_HOLD_EXPIRED.format(booking=texts.fmt_booking(booking, tz)),
+                bot, booking.user_id, t.PAY_HOLD_EXPIRED.format(booking=t.fmt_booking(booking, tz))
             )
 
 
