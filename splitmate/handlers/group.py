@@ -1,3 +1,4 @@
+import time
 from html import escape
 
 from aiogram import Bot, F, Router
@@ -21,16 +22,36 @@ router.callback_query.filter(F.message.chat.type.in_(GROUPS))
 router.my_chat_member.filter(F.chat.type.in_(GROUPS))
 
 
+# Adding the bot via the "Add to group" link produces both a join event and a /start
+# message; remember recent greetings so the chat gets the welcome only once
+WELCOME_DEDUP_SEC = 60
+_welcomed_at: dict[int, float] = {}
+
+
 async def welcome_text(bot: Bot, t: Ru) -> str:
     return t.WELCOME_GROUP.format(bot=(await bot.me()).username)
 
 
+def just_welcomed(chat_id: int) -> bool:
+    now = time.monotonic()
+    recent = now - _welcomed_at.get(chat_id, -WELCOME_DEDUP_SEC) < WELCOME_DEDUP_SEC
+    _welcomed_at[chat_id] = now
+    return recent
+
+
 @router.my_chat_member(ChatMemberUpdatedFilter(JOIN_TRANSITION))
 async def bot_added(event: ChatMemberUpdated, bot: Bot, t: Ru) -> None:
-    await bot.send_message(event.chat.id, await welcome_text(bot, t), reply_markup=kb.join(t))
+    if not just_welcomed(event.chat.id):
+        await bot.send_message(event.chat.id, await welcome_text(bot, t), reply_markup=kb.join(t))
 
 
-@router.message(Command("start", "help"))
+@router.message(Command("start"))
+async def start_cmd(message: Message, bot: Bot, t: Ru) -> None:
+    if not just_welcomed(message.chat.id):
+        await message.answer(await welcome_text(bot, t), reply_markup=kb.join(t))
+
+
+@router.message(Command("help"))
 async def help_cmd(message: Message, bot: Bot, t: Ru) -> None:
     await message.answer(await welcome_text(bot, t), reply_markup=kb.join(t))
 
@@ -294,9 +315,25 @@ async def settle(cb: CallbackQuery, callback_data: kb.Settle, session: AsyncSess
 @router.message(Command("currency"))
 async def currency(message: Message, command: CommandObject, session: AsyncSession, t: Ru) -> None:
     value = (command.args or "").strip()
-    if not value or len(value) > 8:
+    if not value:
+        await message.answer(t.CHOOSE_CURRENCY, reply_markup=kb.currencies())
+        return
+    if len(value) > 8:
         await message.reply(t.CURRENCY_USAGE)
         return
     chat = await repo.ensure_chat(session, message.chat.id, message.chat.title)
     await repo.set_currency(session, chat, value)
     await message.answer(t.CURRENCY_SET.format(currency=escape(value)))
+
+
+@router.callback_query(kb.SetCurrency.filter())
+async def currency_button(
+    cb: CallbackQuery, callback_data: kb.SetCurrency, session: AsyncSession, t: Ru
+) -> None:
+    if callback_data.symbol not in {symbol for symbol, _ in kb.POPULAR_CURRENCIES}:
+        await cb.answer()
+        return
+    chat = await repo.ensure_chat(session, cb.message.chat.id, cb.message.chat.title)
+    await repo.set_currency(session, chat, callback_data.symbol)
+    await cb.message.edit_text(t.CURRENCY_SET.format(currency=escape(callback_data.symbol)))
+    await cb.answer()

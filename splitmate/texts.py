@@ -84,6 +84,7 @@ class Ru:
         "<code>/currency €</code>"
     )
     CURRENCY_SET = "Валюта чата: {currency}"
+    CHOOSE_CURRENCY = "Выберите валюту чата или задайте свою: <code>/currency CHF</code>"
 
     INLINE_TITLE = "💸 Записать расход: {amount}"
     INLINE_DESCRIPTION = "{description}Отправьте в группу, где есть бот"
@@ -161,6 +162,7 @@ class En(Ru):
         "<code>/currency ₴</code>"
     )
     CURRENCY_SET = "Chat currency: {currency}"
+    CHOOSE_CURRENCY = "Choose the chat currency or set your own: <code>/currency CHF</code>"
 
     INLINE_TITLE = "💸 Record an expense: {amount}"
     INLINE_DESCRIPTION = "{description}Send it to a group the bot is in"
@@ -239,6 +241,7 @@ class Uk(Ru):
         "<code>/currency €</code>"
     )
     CURRENCY_SET = "Валюта чату: {currency}"
+    CHOOSE_CURRENCY = "Оберіть валюту чату або вкажіть свою: <code>/currency CHF</code>"
 
     INLINE_TITLE = "💸 Записати витрату: {amount}"
     INLINE_DESCRIPTION = "{description}Надішліть у групу, де є бот"
@@ -318,6 +321,7 @@ class Pl(Ru):
         "<code>/currency $</code>"
     )
     CURRENCY_SET = "Waluta czatu: {currency}"
+    CHOOSE_CURRENCY = "Wybierz walutę czatu albo podaj własną: <code>/currency CHF</code>"
 
     INLINE_TITLE = "💸 Dodaj wydatek: {amount}"
     INLINE_DESCRIPTION = "{description}Wyślij do grupy, w której jest bot"

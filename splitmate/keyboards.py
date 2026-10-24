@@ -23,6 +23,25 @@ class Toggle(CallbackData, prefix="p"):
     user: int
 
 
+class SetCurrency(CallbackData, prefix="cur"):
+    symbol: str
+
+
+# Most used currencies of the bot's audience: (symbol shown in amounts, ISO code)
+POPULAR_CURRENCIES = [
+    ("₴", "UAH"),
+    ("zł", "PLN"),
+    ("€", "EUR"),
+    ("$", "USD"),
+    ("£", "GBP"),
+    ("Kč", "CZK"),
+    ("₸", "KZT"),
+    ("₾", "GEL"),
+    ("₺", "TRY"),
+    ("₽", "RUB"),
+]
+
+
 class Settle(CallbackData, prefix="st"):
     debtor: int
     creditor: int
@@ -68,4 +87,12 @@ def settle(transfers: list[Transfer], names: dict[int, str], currency: str) -> I
             callback_data=Settle(debtor=debtor, creditor=creditor),
         )
     b.adjust(1)
+    return b.as_markup()
+
+
+def currencies() -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    for symbol, code in POPULAR_CURRENCIES:
+        b.button(text=f"{symbol} {code}", callback_data=SetCurrency(symbol=symbol))
+    b.adjust(2)
     return b.as_markup()
