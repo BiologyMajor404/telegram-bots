@@ -2,8 +2,12 @@
 
 from dataclasses import dataclass
 
-from chatguard.ai import AiVerdict, Classifier
+from chatguard.ai import CONFIDENT, AiVerdict, Classifier
 from chatguard.rules import RulesVerdict
+
+# Haiku alone must be as sure as it has to be to skip Opus; Opus is the final word
+# but still shouldn't act on a coin flip
+MIN_SPAM_CONFIDENCE = {"haiku": CONFIDENT, "opus": 65}
 
 
 @dataclass
@@ -32,4 +36,6 @@ async def decide(
     )
     if verdict is None:
         return Decision(False, "none", rules=rules)
-    return Decision(verdict.is_spam, verdict.model, verdict.reason, rules=rules)
+    # Removing a real person is worse than missing one ad: an unsure "spam" doesn't count
+    is_spam = verdict.is_spam and verdict.confidence >= MIN_SPAM_CONFIDENCE[verdict.model]
+    return Decision(is_spam, verdict.model, verdict.reason, rules=rules)

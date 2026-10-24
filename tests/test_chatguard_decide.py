@@ -123,3 +123,15 @@ def test_free_chat_never_asks_opus():
 def test_known_spammer_signal():
     assert "known" in check("Привет", known_spammer=True).reasons
     assert check("Привет").is_clean
+
+
+def test_unsure_spam_verdict_lets_message_pass():
+    # Seen on the real API: Haiku said "spam" at 72% about a person selling a bike
+    v = check("Смотрите https://site.xyz")
+    unsure = FakeClassifier(AiVerdict(True, 72, "maybe an ad", "haiku"))
+    assert not run(decide("t", v, "pl", unsure, True)).is_spam
+    sure = FakeClassifier(AiVerdict(True, 85, "ad", "haiku"))
+    assert run(decide("t", v, "pl", sure, True)).is_spam
+    assert not run(
+        decide("t", v, "pl", FakeClassifier(AiVerdict(True, 60, "r", "opus")), True)
+    ).is_spam
