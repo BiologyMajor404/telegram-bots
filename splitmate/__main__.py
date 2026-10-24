@@ -11,6 +11,7 @@ from shared.db import init_db
 from shared.i18n import LangMiddleware, command_locales
 from shared.log_setup import setup_logging
 from shared.middlewares import DbSessionMiddleware
+from shared.storage import make_storage
 from splitmate.config import SplitMateSettings
 from splitmate.handlers import group, inline, private
 from splitmate.i18n import resolve_lang
@@ -66,8 +67,8 @@ async def main() -> None:
         settings.token.get_secret_value(),
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    # No multi-step dialogs here, so the default in-memory FSM storage is enough
-    dp = Dispatcher()
+    # FSM keeps the "enter an amount" step; Redis lets it survive restarts
+    dp = Dispatcher(storage=make_storage(settings.redis_url, prefix="splitmate"))
     dp.update.middleware(DbSessionMiddleware(session_factory))
     dp.update.middleware(LangMiddleware(resolve_lang, TEXTS))  # needs the DB session
     dp.errors.register(on_error)

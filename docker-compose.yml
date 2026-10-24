@@ -52,8 +52,11 @@ services:
     env_file: .env
     environment:
       SPLITMATE_DATABASE_URL: postgresql+asyncpg://bots:${POSTGRES_PASSWORD:-bots}@postgres:5432/splitmate
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:

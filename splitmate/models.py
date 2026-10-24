@@ -56,6 +56,8 @@ class Share(Base):
     expense_id: Mapped[int] = mapped_column(ForeignKey("expenses.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     amount: Mapped[int]
+    # Set by hand ("who pays how much"); the others split the rest equally
+    fixed: Mapped[bool] = mapped_column(default=False, server_default="false")
 
 
 class Settlement(Base):

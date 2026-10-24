@@ -8,6 +8,10 @@ def name(n: str) -> str:
     return f"<b>{escape(n)}</b>"
 
 
+def user_link(user_id: int, first_name: str) -> str:
+    return f'<a href="tg://user?id={user_id}">{escape(first_name)}</a>'
+
+
 def with_description(description: str) -> str:
     return f" — {escape(description)}" if description else ""
 
@@ -99,6 +103,24 @@ class Ru:
     INLINE_DESCRIPTION = "{description}Отправьте в группу, где есть бот"
     INLINE_HELP_BUTTON = "Как записать расход?"
     INLINE_PRIVATE = "Такие сообщения я записываю только в группах, где я состою"
+    BTN_AMOUNTS = "✏️ Кто сколько"
+    BTN_EQUAL = "↩️ Поровну"
+    EXPENSE_CUSTOM = "💸 <b>{payer}</b> заплатил(а) <b>{amount}</b>{description}\nДоли: {shares}"
+    AMOUNTS_EDITOR = (
+        "✏️ <b>Кто сколько</b> в расходе {amount}{description}\n\n{shares}\n\n"
+        "Нажмите на человека и отправьте его сумму. Остальные делят остаток поровну. "
+        "📌 — сумма задана вручную."
+    )
+    ASK_SHARE = (
+        "Сколько из {amount} приходится на {person}? Ответьте на это сообщение "
+        "суммой, например <code>150</code>"
+    )
+    BAD_SHARE = "Не понял сумму. Ответьте числом, например <code>150</code>"
+    SHARE_EXCEEDS = "Заданные доли ({total}) больше суммы расхода ({amount}). Укажите меньше."
+    SHARE_MISMATCH = (
+        "Суммы заданы у всех, но вместе дают {total} вместо {amount}. Поправьте одну "
+        "из них или нажмите «↩️ Поровну»."
+    )
 
 
 class En(Ru):
@@ -186,6 +208,24 @@ class En(Ru):
     INLINE_DESCRIPTION = "{description}Send it to a group the bot is in"
     INLINE_HELP_BUTTON = "How to record an expense?"
     INLINE_PRIVATE = "I record these messages only in groups I'm a member of"
+    BTN_AMOUNTS = "✏️ Who pays what"
+    BTN_EQUAL = "↩️ Split equally"
+    EXPENSE_CUSTOM = "💸 <b>{payer}</b> paid <b>{amount}</b>{description}\nShares: {shares}"
+    AMOUNTS_EDITOR = (
+        "✏️ <b>Who pays what</b> in {amount}{description}\n\n{shares}\n\nTap a "
+        "person and send their amount. Everyone else splits the rest equally. 📌 "
+        "means set by hand."
+    )
+    ASK_SHARE = (
+        "How much of {amount} is on {person}? Reply to this message with the amount, "
+        "e.g. <code>15</code>"
+    )
+    BAD_SHARE = "Couldn't read the amount. Reply with a number, e.g. <code>15</code>"
+    SHARE_EXCEEDS = "The set shares ({total}) are more than the expense ({amount}). Enter less."
+    SHARE_MISMATCH = (
+        "Everyone has an amount set, but together they make {total} instead of "
+        "{amount}. Fix one of them or press “↩️ Split equally”."
+    )
 
 
 class Uk(Ru):
@@ -275,6 +315,24 @@ class Uk(Ru):
     INLINE_DESCRIPTION = "{description}Надішліть у групу, де є бот"
     INLINE_HELP_BUTTON = "Як записати витрату?"
     INLINE_PRIVATE = "Такі повідомлення я записую лише в групах, де я є"
+    BTN_AMOUNTS = "✏️ Хто скільки"
+    BTN_EQUAL = "↩️ Порівну"
+    EXPENSE_CUSTOM = "💸 <b>{payer}</b> заплатив(ла) <b>{amount}</b>{description}\nЧастки: {shares}"
+    AMOUNTS_EDITOR = (
+        "✏️ <b>Хто скільки</b> у витраті {amount}{description}\n\n{shares}\n\n"
+        "Натисніть на людину й надішліть її суму. Решта ділять залишок порівну. 📌 — "
+        "суму задано вручну."
+    )
+    ASK_SHARE = (
+        "Скільки з {amount} припадає на {person}? Дайте відповідь на це повідомлення "
+        "сумою, наприклад <code>150</code>"
+    )
+    BAD_SHARE = "Не зрозумів суму. Відповідайте числом, наприклад <code>150</code>"
+    SHARE_EXCEEDS = "Задані частки ({total}) більші за суму витрати ({amount}). Вкажіть менше."
+    SHARE_MISMATCH = (
+        "Суми задано всім, але разом вони дають {total} замість {amount}. Виправте "
+        "одну з них або натисніть «↩️ Порівну»."
+    )
 
 
 class Pl(Ru):
@@ -365,6 +423,23 @@ class Pl(Ru):
     INLINE_DESCRIPTION = "{description}Wyślij do grupy, w której jest bot"
     INLINE_HELP_BUTTON = "Jak dodać wydatek?"
     INLINE_PRIVATE = "Takie wiadomości zapisuję tylko w grupach, w których jestem"
+    BTN_AMOUNTS = "✏️ Kto ile"
+    BTN_EQUAL = "↩️ Po równo"
+    EXPENSE_CUSTOM = "💸 <b>{payer}</b> zapłacił(a) <b>{amount}</b>{description}\nUdziały: {shares}"
+    AMOUNTS_EDITOR = (
+        "✏️ <b>Kto ile</b> w wydatku {amount}{description}\n\n{shares}\n\nNaciśnij "
+        "osobę i wyślij jej kwotę. Pozostali dzielą resztę po równo. 📌 — kwota "
+        "ustawiona ręcznie."
+    )
+    ASK_SHARE = (
+        "Ile z {amount} przypada na {person}? Odpowiedz na tę wiadomość kwotą, np. <code>50</code>"
+    )
+    BAD_SHARE = "Nie rozumiem kwoty. Odpowiedz liczbą, np. <code>50</code>"
+    SHARE_EXCEEDS = "Ustawione udziały ({total}) są większe niż wydatek ({amount}). Podaj mniej."
+    SHARE_MISMATCH = (
+        "Wszyscy mają ustawioną kwotę, ale razem dają {total} zamiast {amount}. "
+        "Popraw jedną z nich albo naciśnij „↩️ Po równo”."
+    )
 
 
 TEXTS: dict[str, Ru] = {"uk": Uk(), "ru": Ru(), "pl": Pl(), "en": En()}

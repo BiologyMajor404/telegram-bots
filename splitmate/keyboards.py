@@ -14,12 +14,17 @@ class Join(CallbackData, prefix="j"):
 
 
 class ExpenseAction(CallbackData, prefix="e"):
-    action: str  # people | delete | done
+    action: str  # people | amounts | equal | delete | done
     id: int
 
 
 class MeToo(CallbackData, prefix="mt"):
     expense: int
+
+
+class PickShare(CallbackData, prefix="ps"):
+    expense: int
+    user: int
 
 
 class Toggle(CallbackData, prefix="p"):
@@ -66,9 +71,27 @@ def join(t: Ru) -> InlineKeyboardMarkup:
 def expense(t: Ru, expense_id: int) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     b.button(text=t.BTN_PEOPLE, callback_data=ExpenseAction(action="people", id=expense_id))
-    b.button(text=t.BTN_DELETE, callback_data=ExpenseAction(action="delete", id=expense_id))
+    b.button(text=t.BTN_AMOUNTS, callback_data=ExpenseAction(action="amounts", id=expense_id))
     b.button(text=t.BTN_ME_TOO, callback_data=MeToo(expense=expense_id))
-    b.adjust(2, 1)
+    b.button(text=t.BTN_DELETE, callback_data=ExpenseAction(action="delete", id=expense_id))
+    b.adjust(2, 2)
+    return b.as_markup()
+
+
+def amounts(
+    t: Ru, expense_id: int, rows: list[tuple[int, str, int, bool]], currency: str
+) -> InlineKeyboardMarkup:
+    """rows: (user_id, name, share, set by hand)"""
+    b = InlineKeyboardBuilder()
+    for uid, person, share, fixed in rows:
+        pin = "📌 " if fixed else ""
+        b.button(
+            text=f"{pin}{person}: {fmt_money(share, currency)}",
+            callback_data=PickShare(expense=expense_id, user=uid),
+        )
+    b.button(text=t.BTN_EQUAL, callback_data=ExpenseAction(action="equal", id=expense_id))
+    b.button(text=t.BTN_DONE, callback_data=ExpenseAction(action="done", id=expense_id))
+    b.adjust(*[1] * len(rows), 2)
     return b.as_markup()
 
 

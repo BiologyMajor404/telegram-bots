@@ -1,9 +1,13 @@
 import time
+from contextlib import suppress
 from html import escape
 
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, CommandObject
-from aiogram.types import CallbackQuery, ChatMemberUpdated, Message, User
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, ChatMemberUpdated, ForceReply, Message, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.i18n import CHOOSE_LANGUAGE, SetLang, lang_keyboard
@@ -11,8 +15,8 @@ from splitmate import keyboards as kb
 from splitmate import repo
 from splitmate.i18n import GROUPS
 from splitmate.models import Expense
-from splitmate.money import fmt_money, parse_amount, settle_up
-from splitmate.texts import TEXTS, Ru, name, with_description
+from splitmate.money import ShareError, fmt_money, parse_amount, settle_up
+from splitmate.texts import TEXTS, Ru, name, user_link, with_description
 
 INLINE_PREFIX = "💸 "  # messages sent through the bot's inline mode start with this
 
@@ -108,6 +112,16 @@ async def members_cmd(message: Message, session: AsyncSession, t: Ru) -> None:
 
 async def expense_text(t: Ru, session: AsyncSession, expense: Expense, currency: str) -> str:
     names = await repo.names(session, expense.chat_id)
+    if any(s.fixed for s in expense.shares):
+        return t.EXPENSE_CUSTOM.format(
+            payer=name(names.get(expense.payer_id, "?")),
+            amount=fmt_money(expense.amount, currency),
+            description=with_description(expense.description),
+            shares=", ".join(
+                f"{escape(names.get(s.user_id, '?'))} {fmt_money(s.amount, currency)}"
+                for s in expense.shares
+            ),
+        )
     parts = sorted({s.amount for s in expense.shares})
     each = fmt_money(parts[0], currency)
     if len(parts) > 1:  # remainder kopecks make some shares one unit bigger
@@ -204,7 +218,11 @@ async def toggle_person(
     if not selected:
         await cb.answer(t.NEED_ONE_PARTICIPANT, show_alert=True)
         return
-    await repo.set_participants(session, expense, list(selected))
+    try:
+        await repo.set_participants(session, expense, list(selected))
+    except ShareError as e:
+        await cb.answer(await share_error_text(t, session, expense, e), show_alert=True)
+        return
     await show_participants(cb, session, t, expense)
     await cb.answer()
 
@@ -235,15 +253,130 @@ async def me_too(cb: CallbackQuery, callback_data: kb.MeToo, session: AsyncSessi
         await cb.answer(t.ALREADY_IN_EXPENSE)
         return
     await repo.ensure_member(session, expense.chat_id, cb.from_user)
-    await repo.set_participants(
-        session, expense, [s.user_id for s in expense.shares] + [cb.from_user.id]
-    )
+    try:
+        await repo.set_participants(
+            session, expense, [s.user_id for s in expense.shares] + [cb.from_user.id]
+        )
+    except ShareError as e:
+        await cb.answer(await share_error_text(t, session, expense, e), show_alert=True)
+        return
     chat = await repo.ensure_chat(session, expense.chat_id, None)
     await cb.message.edit_text(
         await expense_text(t, session, expense, chat.currency),
         reply_markup=kb.expense(t, expense.id),
     )
     await cb.answer()
+
+
+# --- Custom amounts ("who pays what") ---
+
+
+class EnterShare(StatesGroup):
+    amount = State()
+
+
+async def share_error_text(t: Ru, session: AsyncSession, expense: Expense, e: ShareError) -> str:
+    chat = await repo.ensure_chat(session, expense.chat_id, None)
+    template = t.SHARE_EXCEEDS if e.reason == "exceeds" else t.SHARE_MISMATCH
+    return template.format(
+        total=fmt_money(e.total, chat.currency), amount=fmt_money(expense.amount, chat.currency)
+    )
+
+
+async def amounts_view(t: Ru, session: AsyncSession, expense: Expense):
+    chat = await repo.ensure_chat(session, expense.chat_id, None)
+    names = await repo.names(session, expense.chat_id)
+    rows = [(s.user_id, names.get(s.user_id, "?"), s.amount, s.fixed) for s in expense.shares]
+    lines = "\n".join(
+        f"{'📌 ' if fixed else ''}{escape(person)}: {fmt_money(share, chat.currency)}"
+        for _, person, share, fixed in rows
+    )
+    text = t.AMOUNTS_EDITOR.format(
+        amount=fmt_money(expense.amount, chat.currency),
+        description=with_description(expense.description),
+        shares=lines,
+    )
+    return text, kb.amounts(t, expense.id, rows, chat.currency)
+
+
+@router.callback_query(kb.ExpenseAction.filter(F.action.in_({"amounts", "equal"})))
+async def edit_amounts(
+    cb: CallbackQuery,
+    callback_data: kb.ExpenseAction,
+    session: AsyncSession,
+    state: FSMContext,
+    t: Ru,
+) -> None:
+    expense = await load_own_expense(cb, session, t, callback_data.id)
+    if expense is None:
+        return
+    await state.clear()
+    if callback_data.action == "equal":
+        await repo.split_evenly(session, expense)
+    text, markup = await amounts_view(t, session, expense)
+    await cb.message.edit_text(text, reply_markup=markup)
+    await cb.answer()
+
+
+@router.callback_query(kb.PickShare.filter())
+async def pick_share(
+    cb: CallbackQuery,
+    callback_data: kb.PickShare,
+    session: AsyncSession,
+    state: FSMContext,
+    t: Ru,
+) -> None:
+    expense = await load_own_expense(cb, session, t, callback_data.expense)
+    if expense is None:
+        return
+    chat = await repo.ensure_chat(session, expense.chat_id, None)
+    names = await repo.names(session, expense.chat_id)
+    # In groups the bot only sees replies to its own messages (privacy mode), hence ForceReply
+    prompt = await cb.message.answer(
+        f"{user_link(cb.from_user.id, cb.from_user.first_name)}, "
+        + t.ASK_SHARE.format(
+            amount=fmt_money(expense.amount, chat.currency),
+            person=name(names.get(callback_data.user, "?")),
+        ),
+        reply_markup=ForceReply(selective=True),
+    )
+    await state.set_state(EnterShare.amount)
+    await state.update_data(
+        expense=expense.id,
+        user=callback_data.user,
+        editor=cb.message.message_id,
+        prompt=prompt.message_id,
+    )
+    await cb.answer()
+
+
+@router.message(EnterShare.amount, F.text)
+async def share_entered(
+    message: Message, session: AsyncSession, state: FSMContext, bot: Bot, t: Ru
+) -> None:
+    parsed = parse_amount(message.text)
+    if parsed is None:
+        await message.reply(t.BAD_SHARE)
+        return
+    data = await state.get_data()
+    expense = await repo.get_expense(session, data["expense"])
+    if expense is None or expense.is_deleted or expense.payer_id != message.from_user.id:
+        await state.clear()
+        return
+    try:
+        await repo.set_share(session, expense, data["user"], parsed[0])
+    except ShareError as e:
+        await message.reply(await share_error_text(t, session, expense, e))
+        return
+    await state.clear()
+    text, markup = await amounts_view(t, session, expense)
+    await bot.edit_message_text(
+        text, chat_id=message.chat.id, message_id=data["editor"], reply_markup=markup
+    )
+    # Tidy up the question and the answer; needs "delete messages" rights, so may fail
+    for message_id in (data["prompt"], message.message_id):
+        with suppress(TelegramBadRequest, TelegramForbiddenError):
+            await bot.delete_message(message.chat.id, message_id)
 
 
 @router.callback_query(kb.ExpenseAction.filter(F.action == "delete"))

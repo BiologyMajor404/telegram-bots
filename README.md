@@ -97,6 +97,8 @@ group chat that already exists.
 ### Features
 - **Add expenses in two ways:** `/add 3000 такси` or straight from the input field with inline mode: `@splitmate_nl_bot 3000 такси`
 - Split equally between everyone who pressed **🙋 Я участвую**; the payer can pick who took part with toggle buttons
+- **Custom amounts (“who pays what”)**: set an exact amount for some people and everyone else splits the rest equally; shares always add up to the expense
+- **🙋 Count me in** under each expense: the bot can't list group members, so people add themselves with one tap
 - **`/balance`** shows each person's balance and the **minimal set of transfers** to settle up
 - One tap marks a debt as returned; only the payer or the receiver can confirm it
 - History, per-chat currency, delete your own expenses
@@ -155,7 +157,8 @@ ruff check .
 - [ ] SlotBook: Google Calendar sync
 - [ ] ChatGuard AI: LLM-based spam detection with explanations for admins
 - [x] SplitMates: inline expense entry, minimal settle-up transfers
-- [ ] SplitMates Pro (Telegram Stars): receipt photo recognition, export to Excel, unequal splits
+- [x] SplitMates: custom amounts per person
+- [ ] SplitMates Pro (Telegram Stars): receipt photo recognition, export to Excel
 - [ ] Webhooks + deployment guide
 
 ## 📄 License

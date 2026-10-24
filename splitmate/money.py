@@ -42,6 +42,33 @@ def split_equally(amount: int, user_ids: Iterable[int]) -> dict[int, int]:
     return {uid: base + (1 if i < remainder else 0) for i, uid in enumerate(ids)}
 
 
+class ShareError(ValueError):
+    """Custom shares that can't add up to the expense amount."""
+
+    def __init__(self, reason: str, total: int) -> None:
+        super().__init__(reason)
+        self.reason = reason  # "exceeds" | "mismatch"
+        self.total = total  # sum of the fixed shares
+
+
+def split_with_fixed(amount: int, user_ids: Iterable[int], fixed: dict[int, int]) -> dict[int, int]:
+    """Some people have a set amount (`fixed`); the rest split what's left equally.
+    Shares always add up exactly to `amount`, otherwise ShareError is raised."""
+    ids = sorted(set(user_ids))
+    if not ids:
+        raise ValueError("Nobody to split between")
+    fixed = {uid: v for uid, v in fixed.items() if uid in ids}
+    total = sum(fixed.values())
+    if total > amount:
+        raise ShareError("exceeds", total)
+    rest = [uid for uid in ids if uid not in fixed]
+    if not rest:
+        if total != amount:
+            raise ShareError("mismatch", total)
+        return dict(fixed)
+    return {**fixed, **split_equally(amount - total, rest)}
+
+
 def net_balances(
     expenses: Iterable[tuple[int, int, dict[int, int]]],
     settlements: Iterable[Transfer],

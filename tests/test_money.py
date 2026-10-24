@@ -1,7 +1,15 @@
 import pytest
 
 from splitmate.handlers.inline import plain_amount
-from splitmate.money import fmt_money, net_balances, parse_amount, settle_up, split_equally
+from splitmate.money import (
+    ShareError,
+    fmt_money,
+    net_balances,
+    parse_amount,
+    settle_up,
+    split_equally,
+    split_with_fixed,
+)
 
 A, B, C, D = 1, 2, 3, 4
 
@@ -41,6 +49,33 @@ def test_split_equally_adds_up_exactly():
     shares = split_equally(1000, [C, A, B])  # 10.00 between three
     assert shares == {A: 334, B: 333, C: 333}
     assert sum(shares.values()) == 1000
+
+
+def test_fixed_shares_and_equal_rest():
+    # 1000 between A, B, C; A pays exactly 400, B and C split the remaining 600
+    assert split_with_fixed(1000, [A, B, C], {A: 400}) == {A: 400, B: 300, C: 300}
+
+
+def test_fixed_rest_remainder_still_adds_up():
+    shares = split_with_fixed(1000, [A, B, C, D], {A: 1})
+    assert sum(shares.values()) == 1000 and shares[A] == 1
+
+
+def test_fixed_for_people_not_in_expense_is_ignored():
+    assert split_with_fixed(100, [A, B], {C: 50}) == {A: 50, B: 50}
+
+
+def test_fixed_more_than_amount_is_rejected():
+    with pytest.raises(ShareError) as e:
+        split_with_fixed(1000, [A, B], {A: 1200})
+    assert e.value.reason == "exceeds" and e.value.total == 1200
+
+
+def test_everyone_fixed_must_match_amount():
+    assert split_with_fixed(1000, [A, B], {A: 300, B: 700}) == {A: 300, B: 700}
+    with pytest.raises(ShareError) as e:
+        split_with_fixed(1000, [A, B], {A: 300, B: 600})
+    assert e.value.reason == "mismatch" and e.value.total == 900
 
 
 def test_split_needs_people():

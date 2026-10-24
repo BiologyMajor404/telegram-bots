@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from splitmate.models import Chat, Expense, Member, Settlement, Share
-from splitmate.money import net_balances, split_equally
+from splitmate.money import net_balances, split_with_fixed
 from splitmate.texts import TEXTS
 
 HISTORY_LIMIT = 10
@@ -76,24 +76,30 @@ async def add_expense(
     expense = Expense(
         chat_id=chat_id, payer_id=payer_id, amount=amount, description=description, shares=[]
     )
-    _apply_shares(expense, participant_ids)
+    _apply_shares(expense, participant_ids, fixed={})
     session.add(expense)
     await session.commit()
     return expense
 
 
-def _apply_shares(expense: Expense, participant_ids: list[int]) -> None:
+def fixed_shares(expense: Expense) -> dict[int, int]:
+    return {s.user_id: s.amount for s in expense.shares if s.fixed}
+
+
+def _apply_shares(expense: Expense, participant_ids: list[int], fixed: dict[int, int]) -> None:
+    """Recalculate shares; raises ShareError (before changing anything) if they can't add up."""
+    parts = split_with_fixed(expense.amount, participant_ids, fixed)
     # Update rows in place: re-creating a share with the same primary key in one flush
     # would clash with the pending delete of the old row
-    parts = split_equally(expense.amount, participant_ids)
     existing = {s.user_id: s for s in expense.shares}
     for uid in existing.keys() - parts.keys():
         expense.shares.remove(existing[uid])
     for uid, part in parts.items():
-        if uid in existing:
-            existing[uid].amount = part
-        else:
-            expense.shares.append(Share(user_id=uid, amount=part))
+        share = existing.get(uid)
+        if share is None:
+            share = Share(user_id=uid)
+            expense.shares.append(share)
+        share.amount, share.fixed = part, uid in fixed
     expense.shares.sort(key=lambda s: s.user_id)
 
 
@@ -104,7 +110,20 @@ async def get_expense(session: AsyncSession, expense_id: int) -> Expense | None:
 async def set_participants(
     session: AsyncSession, expense: Expense, participant_ids: list[int]
 ) -> None:
-    _apply_shares(expense, participant_ids)
+    """Change who takes part, keeping the custom amounts of those who stay."""
+    _apply_shares(expense, participant_ids, fixed_shares(expense))
+    await session.commit()
+
+
+async def set_share(session: AsyncSession, expense: Expense, user_id: int, amount: int) -> None:
+    """Give one person a custom amount; everyone without one splits the rest."""
+    fixed = fixed_shares(expense) | {user_id: amount}
+    _apply_shares(expense, [s.user_id for s in expense.shares], fixed)
+    await session.commit()
+
+
+async def split_evenly(session: AsyncSession, expense: Expense) -> None:
+    _apply_shares(expense, [s.user_id for s in expense.shares], fixed={})
     await session.commit()
 
 
