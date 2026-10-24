@@ -119,9 +119,13 @@ def check(
     forwarded_from_channel: bool = False,
     has_buttons: bool = False,
     has_link_entities: bool = False,
+    known_spammer: bool = False,
 ) -> RulesVerdict:
     v = RulesVerdict()
     low = text.lower()
+
+    if known_spammer:  # caught in another chat (shared list, Pro only)
+        v.add(3, "known")
 
     if INVITE_RE.search(text):
         v.add(3, "invite")

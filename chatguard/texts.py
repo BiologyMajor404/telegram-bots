@@ -70,12 +70,14 @@ class Ru:
         "phone": "номер телефона",
         "emoji": "много эмодзи",
         "caps": "КАПС",
+        "known": "замечен в спаме в других чатах",
     }
     RESTORED = "↩️ {admin} вернул(а) {user}. Сообщение было таким:\n<blockquote>{text}</blockquote>"
     ALREADY_RESTORED = "Уже возвращено"
 
     SETTINGS = (
         "⚙️ <b>Настройки ChatGuard AI</b>\n\n"
+        "Тариф: {plan}\n"
         "Защита: {status}\n"
         "Что делать со спамером: {action}\n"
         "Нейросеть: {ai}\n\n"
@@ -87,9 +89,42 @@ class Ru:
     ACTION_DELETE = "только удалить сообщение"
     ACTION_MUTE = "удалить и замутить"
     ACTION_BAN = "удалить и заблокировать"
-    AI_ON = "включена (Haiku, сложные случаи — Opus)"
+    AI_ON_FREE = "включена (Haiku)"
+    AI_ON_PRO = "включена (Haiku, сложные случаи — Opus)"
     AI_OFF = "выключена, работают только правила"
     AI_LIMIT = "дневной лимит исчерпан, до завтра работают только правила"
+    BTN_PRO = "⭐ Pro"
+    BTN_PAY_PRO = "⭐ Оформить Pro: {price} ⭐ в месяц"
+    CMD_PRO = "Подписка Pro"
+    CMD_PAYSUPPORT = "Вопросы по оплате"
+    PLAN_FREE = "бесплатный"
+    PLAN_PRO = "⭐ Pro до {until}"
+    PRO_OFFER = (
+        "⭐ <b>ChatGuard AI Pro</b>\n\n• сложные случаи перепроверяет Opus, самая "
+        "умная модель\n• до {pro_limit} проверок нейросетью в день вместо "
+        "{free_limit}\n• общая база спамеров: кого поймали в других чатах, "
+        "проверяется строже\n\n{price} ⭐ в месяц, продлевается автоматически. "
+        "Отменить можно в любой момент: Настройки Telegram → Мои звёзды → подписки."
+    )
+    PRO_ACTIVE = "⭐ Pro уже включён до {until}."
+    PRO_INVOICE_TITLE = "ChatGuard AI Pro"
+    PRO_INVOICE_DESCRIPTION = (
+        "Pro для «{chat}» на месяц: Opus для сложных случаев, {limit} проверок в "
+        "день, общая база спамеров."
+    )
+    PRO_THANKS = "Спасибо! ⭐ Pro для «{chat}» активен до {until}."
+    PRO_ACTIVATED = (
+        "⭐ {user} включил(а) ChatGuard AI Pro до {until}. Сложные случаи теперь "
+        "перепроверяет Opus."
+    )
+    PRO_RENEWED = "⭐ Подписка Pro продлена до {until}."
+    PRO_CHECK_FAILED = "Не получилось проверить оплату. Откройте /pro в чате и попробуйте снова."
+    PAYSUPPORT = (
+        "Вопросы по оплате ChatGuard AI Pro. Подписку можно отменить в любой момент: "
+        "Настройки Telegram → Мои звёзды → подписки. Pro работает до конца "
+        "оплаченного месяца."
+    )
+    PAYSUPPORT_CONTACT = "\nСвязаться с разработчиком: {contact}"
 
 
 class En(Ru):
@@ -151,12 +186,14 @@ class En(Ru):
         "phone": "phone number",
         "emoji": "lots of emoji",
         "caps": "CAPS",
+        "known": "caught spamming in other chats",
     }
     RESTORED = "↩️ {admin} restored {user}. The message was:\n<blockquote>{text}</blockquote>"
     ALREADY_RESTORED = "Already restored"
 
     SETTINGS = (
         "⚙️ <b>ChatGuard AI settings</b>\n\n"
+        "Plan: {plan}\n"
         "Protection: {status}\n"
         "What to do with a spammer: {action}\n"
         "AI model: {ai}\n\n"
@@ -168,9 +205,41 @@ class En(Ru):
     ACTION_DELETE = "only delete the message"
     ACTION_MUTE = "delete and mute"
     ACTION_BAN = "delete and ban"
-    AI_ON = "on (Haiku, hard cases go to Opus)"
+    AI_ON_FREE = "on (Haiku)"
+    AI_ON_PRO = "on (Haiku, hard cases go to Opus)"
     AI_OFF = "off, only the rules work"
     AI_LIMIT = "daily limit reached, only the rules work until tomorrow"
+    BTN_PRO = "⭐ Pro"
+    BTN_PAY_PRO = "⭐ Get Pro: {price} ⭐ a month"
+    CMD_PRO = "Pro subscription"
+    CMD_PAYSUPPORT = "Payment questions"
+    PLAN_FREE = "free"
+    PLAN_PRO = "⭐ Pro until {until}"
+    PRO_OFFER = (
+        "⭐ <b>ChatGuard AI Pro</b>\n\n• hard cases get a second look from Opus, the "
+        "smartest model\n• up to {pro_limit} AI checks a day instead of "
+        "{free_limit}\n• shared spammer list: people caught in other chats are "
+        "checked harder\n\n{price} ⭐ a month, renews automatically. Cancel any time: "
+        "Telegram Settings → My Stars → subscriptions."
+    )
+    PRO_ACTIVE = "⭐ Pro is already on until {until}."
+    PRO_INVOICE_TITLE = "ChatGuard AI Pro"
+    PRO_INVOICE_DESCRIPTION = (
+        "Pro for “{chat}” for a month: Opus for hard cases, {limit} checks a day, "
+        "shared spammer list."
+    )
+    PRO_THANKS = "Thank you! ⭐ Pro for “{chat}” is active until {until}."
+    PRO_ACTIVATED = (
+        "⭐ {user} turned on ChatGuard AI Pro until {until}. Opus now double-checks hard cases."
+    )
+    PRO_RENEWED = "⭐ Pro subscription renewed until {until}."
+    PRO_CHECK_FAILED = "Couldn't verify the payment. Open /pro in the chat and try again."
+    PAYSUPPORT = (
+        "Payment questions for ChatGuard AI Pro. You can cancel the subscription any "
+        "time: Telegram Settings → My Stars → subscriptions. Pro keeps working until "
+        "the end of the paid month."
+    )
+    PAYSUPPORT_CONTACT = "\nContact the developer: {contact}"
 
 
 class Uk(Ru):
@@ -234,6 +303,7 @@ class Uk(Ru):
         "phone": "номер телефону",
         "emoji": "багато емодзі",
         "caps": "КАПС",
+        "known": "помічений у спамі в інших чатах",
     }
     RESTORED = (
         "↩️ {admin} повернув(ла) {user}. Повідомлення було таким:\n<blockquote>{text}</blockquote>"
@@ -242,6 +312,7 @@ class Uk(Ru):
 
     SETTINGS = (
         "⚙️ <b>Налаштування ChatGuard AI</b>\n\n"
+        "Тариф: {plan}\n"
         "Захист: {status}\n"
         "Що робити зі спамером: {action}\n"
         "Нейромережа: {ai}\n\n"
@@ -253,9 +324,41 @@ class Uk(Ru):
     ACTION_DELETE = "лише видалити повідомлення"
     ACTION_MUTE = "видалити й замутити"
     ACTION_BAN = "видалити й заблокувати"
-    AI_ON = "увімкнена (Haiku, складні випадки — Opus)"
+    AI_ON_FREE = "увімкнена (Haiku)"
+    AI_ON_PRO = "увімкнена (Haiku, складні випадки — Opus)"
     AI_OFF = "вимкнена, працюють лише правила"
     AI_LIMIT = "денний ліміт вичерпано, до завтра працюють лише правила"
+    BTN_PRO = "⭐ Pro"
+    BTN_PAY_PRO = "⭐ Оформити Pro: {price} ⭐ на місяць"
+    CMD_PRO = "Підписка Pro"
+    CMD_PAYSUPPORT = "Питання щодо оплати"
+    PLAN_FREE = "безкоштовний"
+    PLAN_PRO = "⭐ Pro до {until}"
+    PRO_OFFER = (
+        "⭐ <b>ChatGuard AI Pro</b>\n\n• складні випадки перевіряє ще й Opus, "
+        "найрозумніша модель\n• до {pro_limit} перевірок нейромережею на день "
+        "замість {free_limit}\n• спільна база спамерів: кого спіймали в інших чатах, "
+        "перевіряється суворіше\n\n{price} ⭐ на місяць, продовжується автоматично. "
+        "Скасувати можна будь-коли: Налаштування Telegram → Мої зірки → підписки."
+    )
+    PRO_ACTIVE = "⭐ Pro вже увімкнено до {until}."
+    PRO_INVOICE_TITLE = "ChatGuard AI Pro"
+    PRO_INVOICE_DESCRIPTION = (
+        "Pro для «{chat}» на місяць: Opus для складних випадків, {limit} перевірок "
+        "на день, спільна база спамерів."
+    )
+    PRO_THANKS = "Дякуємо! ⭐ Pro для «{chat}» активний до {until}."
+    PRO_ACTIVATED = (
+        "⭐ {user} увімкнув(ла) ChatGuard AI Pro до {until}. Складні випадки тепер перевіряє Opus."
+    )
+    PRO_RENEWED = "⭐ Підписку Pro продовжено до {until}."
+    PRO_CHECK_FAILED = "Не вдалося перевірити оплату. Відкрийте /pro у чаті й спробуйте ще раз."
+    PAYSUPPORT = (
+        "Питання щодо оплати ChatGuard AI Pro. Підписку можна скасувати будь-коли: "
+        "Налаштування Telegram → Мої зірки → підписки. Pro працює до кінця "
+        "оплаченого місяця."
+    )
+    PAYSUPPORT_CONTACT = "\nЗв'язатися з розробником: {contact}"
 
 
 class Pl(Ru):
@@ -319,6 +422,7 @@ class Pl(Ru):
         "phone": "numer telefonu",
         "emoji": "dużo emoji",
         "caps": "CAPS LOCK",
+        "known": "przyłapany na spamie w innych czatach",
     }
     RESTORED = (
         "↩️ {admin} przywrócił(a) {user}. Wiadomość brzmiała:\n<blockquote>{text}</blockquote>"
@@ -327,6 +431,7 @@ class Pl(Ru):
 
     SETTINGS = (
         "⚙️ <b>Ustawienia ChatGuard AI</b>\n\n"
+        "Plan: {plan}\n"
         "Ochrona: {status}\n"
         "Co zrobić ze spamerem: {action}\n"
         "Model AI: {ai}\n\n"
@@ -338,9 +443,44 @@ class Pl(Ru):
     ACTION_DELETE = "tylko usuń wiadomość"
     ACTION_MUTE = "usuń i wycisz"
     ACTION_BAN = "usuń i zbanuj"
-    AI_ON = "włączony (Haiku, trudne przypadki — Opus)"
+    AI_ON_FREE = "włączony (Haiku)"
+    AI_ON_PRO = "włączony (Haiku, trudne przypadki — Opus)"
     AI_OFF = "wyłączony, działają tylko reguły"
     AI_LIMIT = "dzienny limit wyczerpany, do jutra działają tylko reguły"
+    BTN_PRO = "⭐ Pro"
+    BTN_PAY_PRO = "⭐ Kup Pro: {price} ⭐ miesięcznie"
+    CMD_PRO = "Subskrypcja Pro"
+    CMD_PAYSUPPORT = "Pytania o płatność"
+    PLAN_FREE = "darmowy"
+    PLAN_PRO = "⭐ Pro do {until}"
+    PRO_OFFER = (
+        "⭐ <b>ChatGuard AI Pro</b>\n\n• trudne przypadki sprawdza dodatkowo Opus, "
+        "najmądrzejszy model\n• do {pro_limit} sprawdzeń przez AI dziennie zamiast "
+        "{free_limit}\n• wspólna baza spamerów: osoby złapane w innych czatach są "
+        "sprawdzane surowiej\n\n{price} ⭐ miesięcznie, odnawia się automatycznie. "
+        "Anulujesz w każdej chwili: Ustawienia Telegrama → Moje gwiazdki → "
+        "subskrypcje."
+    )
+    PRO_ACTIVE = "⭐ Pro jest już włączone do {until}."
+    PRO_INVOICE_TITLE = "ChatGuard AI Pro"
+    PRO_INVOICE_DESCRIPTION = (
+        "Pro dla „{chat}” na miesiąc: Opus dla trudnych przypadków, {limit} "
+        "sprawdzeń dziennie, wspólna baza spamerów."
+    )
+    PRO_THANKS = "Dziękujemy! ⭐ Pro dla „{chat}” jest aktywne do {until}."
+    PRO_ACTIVATED = (
+        "⭐ {user} włączył(a) ChatGuard AI Pro do {until}. Trudne przypadki sprawdza teraz Opus."
+    )
+    PRO_RENEWED = "⭐ Subskrypcja Pro przedłużona do {until}."
+    PRO_CHECK_FAILED = (
+        "Nie udało się zweryfikować płatności. Otwórz /pro w czacie i spróbuj ponownie."
+    )
+    PAYSUPPORT = (
+        "Pytania o płatność za ChatGuard AI Pro. Subskrypcję można anulować w każdej "
+        "chwili: Ustawienia Telegrama → Moje gwiazdki → subskrypcje. Pro działa do "
+        "końca opłaconego miesiąca."
+    )
+    PAYSUPPORT_CONTACT = "\nKontakt z twórcą: {contact}"
 
 
 TEXTS: dict[str, Ru] = {"uk": Uk(), "ru": Ru(), "pl": Pl(), "en": En()}

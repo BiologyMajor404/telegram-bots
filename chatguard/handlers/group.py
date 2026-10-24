@@ -14,7 +14,9 @@ from chatguard import keyboards as kb
 from chatguard import repo
 from chatguard.admins import is_admin
 from chatguard.ai import Classifier
+from chatguard.config import Plans
 from chatguard.decide import decide
+from chatguard.handlers.payments import fmt_date, pro_offer
 from chatguard.i18n import GROUPS
 from chatguard.models import Action, Chat
 from chatguard.rules import check
@@ -57,20 +59,23 @@ async def help_cmd(message: Message, t: Ru) -> None:
 # --- Settings (admins only) ---
 
 
-def ai_status(t: Ru, chat: Chat, classifier: Classifier | None, limit: int) -> str:
+def ai_status(t: Ru, chat: Chat, classifier: Classifier | None, plans: Plans) -> str:
+    now = datetime.now(UTC)
     if classifier is None:
         return t.AI_OFF
-    if not repo.ai_budget_left(chat, datetime.now(UTC).date(), limit):
+    if not repo.ai_budget_left(chat, now.date(), repo.ai_limit(chat, now, plans)):
         return t.AI_LIMIT
-    return t.AI_ON
+    return t.AI_ON_PRO if repo.is_pro(chat, now) else t.AI_ON_FREE
 
 
-def settings_text(t: Ru, chat: Chat, classifier: Classifier | None, limit: int) -> str:
+def settings_text(t: Ru, chat: Chat, classifier: Classifier | None, plans: Plans) -> str:
     actions = {Action.DELETE: t.ACTION_DELETE, Action.MUTE: t.ACTION_MUTE, Action.BAN: t.ACTION_BAN}
+    pro = repo.is_pro(chat, datetime.now(UTC))
     return t.SETTINGS.format(
+        plan=t.PLAN_PRO.format(until=fmt_date(chat.pro_until)) if pro else t.PLAN_FREE,
         status=t.STATUS_ON if chat.enabled else t.STATUS_OFF,
         action=actions[chat.action],
-        ai=ai_status(t, chat, classifier, limit),
+        ai=ai_status(t, chat, classifier, plans),
         checked=chat.checked,
         caught=chat.caught,
     )
@@ -83,14 +88,14 @@ async def settings_cmd(
     bot: Bot,
     t: Ru,
     classifier: Classifier | None,
-    ai_daily_limit: int,
+    plans: Plans,
 ) -> None:
     if not await is_admin(bot, message.chat.id, message.from_user.id):
         await message.reply(t.ONLY_ADMINS)
         return
     chat = await repo.ensure_chat(session, message.chat.id, message.chat.title)
     await message.answer(
-        settings_text(t, chat, classifier, ai_daily_limit), reply_markup=kb.settings(t, chat)
+        settings_text(t, chat, classifier, plans), reply_markup=kb.settings(t, chat)
     )
 
 
@@ -102,7 +107,7 @@ async def settings_change(
     bot: Bot,
     t: Ru,
     classifier: Classifier | None,
-    ai_daily_limit: int,
+    plans: Plans,
 ) -> None:
     if not await is_admin(bot, cb.message.chat.id, cb.from_user.id):
         await cb.answer(t.ONLY_ADMINS, show_alert=True)
@@ -112,15 +117,30 @@ async def settings_change(
         await cb.message.answer(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
         await cb.answer()
         return
+    if callback_data.name == "pro":
+        text, markup = await pro_offer(bot, chat, t, plans)
+        await cb.message.answer(text, reply_markup=markup)
+        await cb.answer()
+        return
     if callback_data.name == "action" and callback_data.value in Action.ALL:
         chat.action = callback_data.value
     elif callback_data.name == "toggle":
         chat.enabled = not chat.enabled
     await session.commit()
     await cb.message.edit_text(
-        settings_text(t, chat, classifier, ai_daily_limit), reply_markup=kb.settings(t, chat)
+        settings_text(t, chat, classifier, plans), reply_markup=kb.settings(t, chat)
     )
     await cb.answer()
+
+
+@router.message(Command("pro"))
+async def pro_cmd(message: Message, session: AsyncSession, bot: Bot, t: Ru, plans: Plans) -> None:
+    if not await is_admin(bot, message.chat.id, message.from_user.id):
+        await message.reply(t.ONLY_ADMINS)
+        return
+    chat = await repo.ensure_chat(session, message.chat.id, message.chat.title)
+    text, markup = await pro_offer(bot, chat, t, plans)
+    await message.answer(text, reply_markup=markup)
 
 
 @router.message(Command("language"))
@@ -227,7 +247,7 @@ async def guard(
     bot: Bot,
     t: Ru,
     classifier: Classifier | None,
-    ai_daily_limit: int,
+    plans: Plans,
 ) -> None:
     user = message.from_user
     text = message.text or message.caption or ""
@@ -245,10 +265,13 @@ async def guard(
         await session.commit()
         return
 
-    rules = check(text, **message_signals(message))
-    today = datetime.now(UTC).date()
-    ai_allowed = repo.ai_budget_left(chat, today, ai_daily_limit)
-    decision = await decide(text, rules, chat.lang, classifier, ai_allowed)
+    now = datetime.now(UTC)
+    today = now.date()
+    pro = repo.is_pro(chat, now)
+    known = pro and await repo.is_known_spammer(session, user.id)
+    rules = check(text, **message_signals(message), known_spammer=known)
+    ai_allowed = repo.ai_budget_left(chat, today, repo.ai_limit(chat, now, plans))
+    decision = await decide(text, rules, chat.lang, classifier, ai_allowed, allow_opus=pro)
     if decision.source in ("haiku", "opus"):
         repo.spend_ai_check(chat, today)
     chat.checked += 1
@@ -266,6 +289,7 @@ async def guard(
         return
     await punish(bot, chat, user.id)
     chat.caught += 1
+    await repo.record_spammer(session, user.id, now)
 
     if decision.source == "rules":
         signals = ", ".join(t.SIGNALS.get(r, r) for r in decision.rules.reasons)

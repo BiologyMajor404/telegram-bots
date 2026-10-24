@@ -14,7 +14,7 @@ class Restore(CallbackData, prefix="r"):
 
 
 class Setting(CallbackData, prefix="cfg"):
-    name: str  # action | toggle | lang
+    name: str  # action | toggle | lang | pro
     value: str = ""
 
 
@@ -46,6 +46,7 @@ def settings(t: Ru, chat: Chat) -> InlineKeyboardMarkup:
         text=t.BTN_TURN_OFF if chat.enabled else t.BTN_TURN_ON,
         callback_data=Setting(name="toggle"),
     )
+    b.button(text=t.BTN_PRO, callback_data=Setting(name="pro"))
     b.button(text=LANGUAGE_BUTTON, callback_data=Setting(name="lang"))
     b.adjust(1)
     return b.as_markup()

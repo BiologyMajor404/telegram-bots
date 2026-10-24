@@ -9,7 +9,7 @@ from aiogram.types import BotCommand, BotCommandScopeAllGroupChats, ErrorEvent
 
 from chatguard.ai import Classifier
 from chatguard.config import ChatGuardSettings
-from chatguard.handlers import group, private
+from chatguard.handlers import group, payments, private
 from chatguard.i18n import resolve_lang
 from chatguard.texts import TEXTS, Ru
 from shared.db import init_db
@@ -23,6 +23,7 @@ log = logging.getLogger("chatguard")
 def group_commands(t: Ru) -> list[BotCommand]:
     return [
         BotCommand(command="settings", description=t.CMD_SETTINGS),
+        BotCommand(command="pro", description=t.CMD_PRO),
         BotCommand(command="language", description=t.CMD_LANGUAGE),
         BotCommand(command="help", description=t.CMD_HELP),
     ]
@@ -37,7 +38,11 @@ async def set_commands(bot: Bot) -> None:
                 group_commands(t), scope=BotCommandScopeAllGroupChats(), language_code=code
             )
             await bot.set_my_commands(
-                [BotCommand(command="start", description=t.CMD_START)], language_code=code
+                [
+                    BotCommand(command="start", description=t.CMD_START),
+                    BotCommand(command="paysupport", description=t.CMD_PAYSUPPORT),
+                ],
+                language_code=code,
             )
 
 
@@ -67,11 +72,16 @@ async def main() -> None:
         settings.token.get_secret_value(),
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dp = Dispatcher(classifier=classifier, ai_daily_limit=settings.ai_daily_limit)
+    dp = Dispatcher(
+        classifier=classifier,
+        plans=settings.plans,
+        support_contact=settings.support_contact,
+    )
     dp.update.middleware(DbSessionMiddleware(session_factory))
     dp.update.middleware(LangMiddleware(resolve_lang, TEXTS))  # needs the DB session
     dp.errors.register(on_error)
-    dp.include_routers(group.router, private.router)
+    # Payments first: payment messages arrive in private chats, where the catch-all lives
+    dp.include_routers(payments.router, group.router, private.router)
 
     await set_commands(bot)
     log.info("ChatGuard AI started (AI: %s)", "on" if classifier else "off")

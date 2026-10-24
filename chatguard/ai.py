@@ -92,11 +92,14 @@ class Classifier:
     def __init__(self, api_key: str) -> None:
         self.client = anthropic.AsyncAnthropic(api_key=api_key, max_retries=2, timeout=60)
 
-    async def classify(self, text: str, lang: str, hints: list[str]) -> AiVerdict | None:
-        """None means the AI couldn't decide (error, refusal); the caller falls back to rules."""
+    async def classify(
+        self, text: str, lang: str, hints: list[str], allow_opus: bool = True
+    ) -> AiVerdict | None:
+        """None means the AI couldn't decide (error, refusal); the caller falls back to rules.
+        Opus (the second opinion) is a Pro feature, so free chats stop at Haiku."""
         request = _request(text, lang, hints)
         haiku = await self._haiku(request)
-        if haiku is not None and haiku.confidence >= CONFIDENT:
+        if not allow_opus or (haiku is not None and haiku.confidence >= CONFIDENT):
             return haiku
         opus = await self._opus(request)
         return opus or haiku

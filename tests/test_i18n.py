@@ -11,9 +11,9 @@ from slotbook import texts as slotbook_texts
 from splitmate import texts as splitmate_texts
 
 # Texts that are legitimately identical to Russian (in every language / in a given one)
-SAME_EVERYWHERE = {"PUNISH_DELETE"}
+SAME_EVERYWHERE = {"PUNISH_DELETE", "BTN_PRO", "PRO_INVOICE_TITLE"}  # brand names
 SAME_AS_RUSSIAN = {
-    "uk": {"DEFAULT_CURRENCY", "BTN_DONE", "SOURCE_RULES"},
+    "uk": {"DEFAULT_CURRENCY", "BTN_DONE", "SOURCE_RULES", "PLAN_PRO"},
 }
 
 CASES = [

@@ -12,7 +12,7 @@ class FakeClassifier:
         self.verdict = verdict
         self.calls = 0
 
-    async def classify(self, text, lang, hints):
+    async def classify(self, text, lang, hints, allow_opus=True):
         self.calls += 1
         return self.verdict
 
@@ -110,3 +110,16 @@ def test_message_is_wrapped_as_untrusted_data():
     content = req["messages"][0]["content"]
     assert content.startswith("<message>") and "keyword filter noticed: link" in content
     assert "Ukrainian" in req["system"][0]["text"]
+
+
+def test_free_chat_never_asks_opus():
+    c, calls = make_classifier(
+        AiVerdict(True, 40, "r", "haiku"), AiVerdict(False, 90, "ok", "opus")
+    )
+    v = run(c.classify("t", "ru", [], allow_opus=False))
+    assert v.model == "haiku" and calls == ["haiku"]
+
+
+def test_known_spammer_signal():
+    assert "known" in check("Привет", known_spammer=True).reasons
+    assert check("Привет").is_clean

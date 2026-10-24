@@ -29,6 +29,22 @@ class Chat(Base):
     # Daily AI budget per chat
     ai_day: Mapped[date | None]
     ai_checks: Mapped[int] = mapped_column(default=0)
+    # Pro subscription (Telegram Stars), paid by one of the admins
+    pro_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pro_owner_id: Mapped[int | None] = mapped_column(BigInteger)
+    pro_charge_id: Mapped[str | None] = mapped_column(String(128))
+
+
+class Spammer(Base):
+    """Shared across chats: people caught spamming anywhere. Pro chats check them harder."""
+
+    __tablename__ = "spammers"
+
+    user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    caught: Mapped[int] = mapped_column(default=0)
+    last_caught_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Member(Base):

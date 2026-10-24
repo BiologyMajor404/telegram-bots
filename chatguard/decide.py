@@ -20,13 +20,16 @@ async def decide(
     lang: str,
     classifier: Classifier | None,
     ai_allowed: bool,
+    allow_opus: bool = False,
 ) -> Decision:
     if rules.is_spam:
         return Decision(True, "rules", rules=rules)
     if rules.is_clean or classifier is None or not ai_allowed:
         # Without the AI only clear-cut rule hits count; doubtful messages pass
         return Decision(False, "none", rules=rules)
-    verdict: AiVerdict | None = await classifier.classify(text, lang, rules.reasons)
+    verdict: AiVerdict | None = await classifier.classify(
+        text, lang, rules.reasons, allow_opus=allow_opus
+    )
     if verdict is None:
         return Decision(False, "none", rules=rules)
     return Decision(verdict.is_spam, verdict.model, verdict.reason, rules=rules)

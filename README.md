@@ -120,8 +120,18 @@ classic captchas no longer stop them. ChatGuard checks what newcomers actually w
 ### How it works
 1. **Only newcomers are checked:** the first 3 messages of each member; admins and people an admin restored are trusted
 2. **Fast rules first** (free, instant): links, chat invites, money/crypto/casino words, DM lures, forwards from channels, link buttons, caps, emoji floods - in Ukrainian, Russian, Polish and English
-3. **AI cascade for doubtful cases:** Claude Haiku decides; when it's less than 80% sure, Claude Opus takes a second look
+3. **AI for doubtful cases:** Claude Haiku decides; on the Pro plan, when Haiku is less than 80% sure, Claude Opus takes a second look
 4. Spam is deleted, the sender is muted or banned (admin's choice), and the chat gets a report with the **reason** and a **↩️ Restore** button that lifts the punishment and reposts the message
+
+### Free and Pro
+| | Free | Pro (Telegram Stars subscription) |
+|---|---|---|
+| Fast rules | ✅ | ✅ |
+| AI model | Claude Haiku | Haiku → **Claude Opus** for hard cases |
+| AI checks per day | 50 | 500 |
+| Shared spammer list (caught in one chat → checked harder in others) | — | ✅ |
+
+`/pro` in a group shows the offer; an admin pays with a monthly Stars subscription that renews automatically. The payment is validated before Telegram charges (real chat, current price, payer is an admin of that chat), renewals extend the plan, and `/paysupport` answers payment questions as Telegram requires.
 
 ### Engineering details
 - **Cost control:** obvious spam and obviously normal messages never reach the AI; a per-chat daily AI limit falls back to rules when reached; the system prompt is prompt-cached
@@ -176,7 +186,7 @@ ruff check .
 - [x] SlotBook: prepayment via Telegram Stars to reduce no-shows
 - [ ] SlotBook: Google Calendar sync
 - [x] ChatGuard AI: rules + Claude Haiku -> Opus spam detection with explanations for admins
-- [ ] ChatGuard AI Pro (Telegram Stars): larger chats, shared spammer database
+- [x] ChatGuard AI Pro (Telegram Stars subscription): Opus, higher limits, shared spammer list
 - [x] SplitMates: inline expense entry, minimal settle-up transfers
 - [x] SplitMates: custom amounts per person
 - [ ] SplitMates Pro (Telegram Stars): receipt photo recognition, export to Excel
