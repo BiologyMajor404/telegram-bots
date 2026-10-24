@@ -112,7 +112,7 @@ async def expense_text(t: Ru, session: AsyncSession, expense: Expense, currency:
     each = fmt_money(parts[0], currency)
     if len(parts) > 1:  # remainder kopecks make some shares one unit bigger
         each = f"{each} – {fmt_money(parts[-1], currency)}"
-    return t.EXPENSE.format(
+    text = t.EXPENSE.format(
         payer=name(names.get(expense.payer_id, "?")),
         amount=fmt_money(expense.amount, currency),
         description=with_description(expense.description),
@@ -120,6 +120,8 @@ async def expense_text(t: Ru, session: AsyncSession, expense: Expense, currency:
         names=", ".join(escape(names.get(s.user_id, "?")) for s in expense.shares),
         each=each,
     )
+    # The bot can't list group members, so people have to add themselves
+    return text + t.EXPENSE_ALONE_HINT if len(expense.shares) == 1 else text
 
 
 async def record_expense(
@@ -185,7 +187,8 @@ async def show_participants(
         t.CHOOSE_PARTICIPANTS.format(
             amount=fmt_money(expense.amount, chat.currency),
             description=with_description(expense.description),
-        ),
+        )
+        + t.PARTICIPANTS_HINT,
         reply_markup=kb.participants(t, expense.id, people, {s.user_id for s in expense.shares}),
     )
 
@@ -213,6 +216,28 @@ async def people_done(
     expense = await load_own_expense(cb, session, t, callback_data.id)
     if expense is None:
         return
+    chat = await repo.ensure_chat(session, expense.chat_id, None)
+    await cb.message.edit_text(
+        await expense_text(t, session, expense, chat.currency),
+        reply_markup=kb.expense(t, expense.id),
+    )
+    await cb.answer()
+
+
+@router.callback_query(kb.MeToo.filter())
+async def me_too(cb: CallbackQuery, callback_data: kb.MeToo, session: AsyncSession, t: Ru) -> None:
+    """Anyone who took part adds themselves to the expense (and to the chat's participants)."""
+    expense = await repo.get_expense(session, callback_data.expense)
+    if expense is None or expense.is_deleted or expense.chat_id != cb.message.chat.id:
+        await cb.answer()
+        return
+    if cb.from_user.id in {s.user_id for s in expense.shares}:
+        await cb.answer(t.ALREADY_IN_EXPENSE)
+        return
+    await repo.ensure_member(session, expense.chat_id, cb.from_user)
+    await repo.set_participants(
+        session, expense, [s.user_id for s in expense.shares] + [cb.from_user.id]
+    )
     chat = await repo.ensure_chat(session, expense.chat_id, None)
     await cb.message.edit_text(
         await expense_text(t, session, expense, chat.currency),

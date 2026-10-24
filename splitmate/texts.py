@@ -67,6 +67,15 @@ class Ru:
     EXPENSE_DELETED = "🗑 Расход {amount}{description} удалён"
     CHOOSE_PARTICIPANTS = "Кто участвует в расходе {amount}{description}?"
     NEED_ONE_PARTICIPANT = "Нужен хотя бы один участник"
+    BTN_ME_TOO = "🙋 Я тоже участвую"
+    ALREADY_IN_EXPENSE = "Вы уже участвуете в этом расходе"
+    EXPENSE_ALONE_HINT = (
+        "\n\n<i>Пока делим только на одного. Кто тоже участвовал, нажмите «🙋 Я тоже участвую»</i>"
+    )
+    PARTICIPANTS_HINT = (
+        "\n\n<i>Нет нужного человека? Бот видит только тех, кто нажал "
+        "«🙋 Я тоже участвую» или «🙋 Я участвую»</i>"
+    )
     ONLY_PAYER = "Менять расход может только тот, кто его записал"
 
     BALANCE_EMPTY = "✅ Все в расчёте, никто никому не должен"
@@ -145,6 +154,15 @@ class En(Ru):
     EXPENSE_DELETED = "🗑 Expense {amount}{description} deleted"
     CHOOSE_PARTICIPANTS = "Who took part in the expense {amount}{description}?"
     NEED_ONE_PARTICIPANT = "At least one participant is needed"
+    BTN_ME_TOO = "🙋 Count me in"
+    ALREADY_IN_EXPENSE = "You're already in this expense"
+    EXPENSE_ALONE_HINT = (
+        "\n\n<i>Split with one person so far. Anyone else who took part, press “🙋 Count me in”</i>"
+    )
+    PARTICIPANTS_HINT = (
+        "\n\n<i>Someone missing? The bot only sees people who "
+        "pressed “🙋 Count me in” or “🙋 I'm in”</i>"
+    )
     ONLY_PAYER = "Only the person who recorded the expense can change it"
 
     BALANCE_EMPTY = "✅ All square, nobody owes anything"
@@ -224,6 +242,16 @@ class Uk(Ru):
     EXPENSE_DELETED = "🗑 Витрату {amount}{description} видалено"
     CHOOSE_PARTICIPANTS = "Хто бере участь у витраті {amount}{description}?"
     NEED_ONE_PARTICIPANT = "Потрібен хоча б один учасник"
+    BTN_ME_TOO = "🙋 Я теж беру участь"
+    ALREADY_IN_EXPENSE = "Ви вже берете участь у цій витраті"
+    EXPENSE_ALONE_HINT = (
+        "\n\n<i>Поки ділимо лише на одного. Хто теж брав "
+        "участь, натисніть «🙋 Я теж беру участь»</i>"
+    )
+    PARTICIPANTS_HINT = (
+        "\n\n<i>Немає потрібної людини? Бот бачить лише тих, хто "
+        "натиснув «🙋 Я теж беру участь» або «🙋 Я з вами»</i>"
+    )
     ONLY_PAYER = "Змінювати витрату може лише той, хто її записав"
 
     BALANCE_EMPTY = "✅ Усі в розрахунку, ніхто нікому не винен"
@@ -304,6 +332,16 @@ class Pl(Ru):
     EXPENSE_DELETED = "🗑 Wydatek {amount}{description} usunięty"
     CHOOSE_PARTICIPANTS = "Kto dzieli wydatek {amount}{description}?"
     NEED_ONE_PARTICIPANT = "Potrzebny jest co najmniej jeden uczestnik"
+    BTN_ME_TOO = "🙋 Ja też się dorzucam"
+    ALREADY_IN_EXPENSE = "Już jesteś w tym wydatku"
+    EXPENSE_ALONE_HINT = (
+        "\n\n<i>Na razie dzielimy na jedną osobę. Kto też brał udział, "
+        "niech naciśnie „🙋 Ja też się dorzucam”</i>"
+    )
+    PARTICIPANTS_HINT = (
+        "\n\n<i>Brakuje kogoś? Bot widzi tylko osoby, które nacisnęły "
+        "„🙋 Ja też się dorzucam” lub „🙋 Wchodzę”</i>"
+    )
     ONLY_PAYER = "Wydatek może zmienić tylko osoba, która go dodała"
 
     BALANCE_EMPTY = "✅ Wszyscy są rozliczeni, nikt nikomu nic nie wisi"

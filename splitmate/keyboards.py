@@ -18,6 +18,10 @@ class ExpenseAction(CallbackData, prefix="e"):
     id: int
 
 
+class MeToo(CallbackData, prefix="mt"):
+    expense: int
+
+
 class Toggle(CallbackData, prefix="p"):
     expense: int
     user: int
@@ -63,6 +67,8 @@ def expense(t: Ru, expense_id: int) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     b.button(text=t.BTN_PEOPLE, callback_data=ExpenseAction(action="people", id=expense_id))
     b.button(text=t.BTN_DELETE, callback_data=ExpenseAction(action="delete", id=expense_id))
+    b.button(text=t.BTN_ME_TOO, callback_data=MeToo(expense=expense_id))
+    b.adjust(2, 1)
     return b.as_markup()
 
 
