@@ -5,17 +5,22 @@ import string
 
 import pytest
 
+from chatguard import texts as chatguard_texts
 from shared.i18n import LANGS, command_locales, detect
 from slotbook import texts as slotbook_texts
 from splitmate import texts as splitmate_texts
 
-# Texts that are legitimately identical to Russian in a given language
+# Texts that are legitimately identical to Russian (in every language / in a given one)
+SAME_EVERYWHERE = {"PUNISH_DELETE"}
 SAME_AS_RUSSIAN = {
-    "uk": {"DEFAULT_CURRENCY", "BTN_DONE"},
+    "uk": {"DEFAULT_CURRENCY", "BTN_DONE", "SOURCE_RULES"},
 }
 
 CASES = [
-    (module, code) for module in (slotbook_texts, splitmate_texts) for code in LANGS if code != "ru"
+    (module, code)
+    for module in (slotbook_texts, splitmate_texts, chatguard_texts)
+    for code in LANGS
+    if code != "ru"
 ]
 IDS = [f"{m.__name__.split('.')[0]}-{code}" for m, code in CASES]
 
@@ -35,7 +40,7 @@ def fields(s: object) -> set[str]:
     return {f for _, f, _, _ in string.Formatter().parse(s) if f}
 
 
-@pytest.mark.parametrize("module", [slotbook_texts, splitmate_texts])
+@pytest.mark.parametrize("module", [slotbook_texts, splitmate_texts, chatguard_texts])
 def test_every_language_is_registered(module):
     assert set(module.TEXTS) == set(LANGS)
     assert all(code == t.LANG for code, t in module.TEXTS.items())
@@ -44,7 +49,7 @@ def test_every_language_is_registered(module):
 @pytest.mark.parametrize(("module", "code"), CASES, ids=IDS)
 def test_language_overrides_every_text(module, code):
     ru, other = translatable(module.TEXTS["ru"]), translatable(module.TEXTS[code])
-    allowed = SAME_AS_RUSSIAN.get(code, set())
+    allowed = SAME_EVERYWHERE | SAME_AS_RUSSIAN.get(code, set())
     untranslated = sorted(k for k in ru if other[k] == ru[k] and k not in allowed)
     assert not untranslated, f"Still in Russian: {untranslated}"
 

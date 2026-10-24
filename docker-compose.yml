@@ -59,6 +59,17 @@ services:
       redis:
         condition: service_healthy
 
+  chatguard:
+    build: .
+    command: ["python", "-m", "chatguard"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CHATGUARD_DATABASE_URL: postgresql+asyncpg://bots:${POSTGRES_PASSWORD:-bots}@postgres:5432/chatguard
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   redis_data:

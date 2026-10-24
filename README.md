@@ -11,10 +11,10 @@ or a translation loses a `{placeholder}`.
 | Bot | What it does | Status |
 |---|---|---|
 | 💈 **[SlotBook](#-slotbook)** · [@slotbook_nl_bot](https://t.me/slotbook_nl_bot) | Online booking for barbers, nail masters, tutors | 🟢 MVP |
-| 🛡 **ChatGuard AI** · [@chatguard_nl_bot](https://t.me/chatguard_nl_bot) | AI anti-spam moderator for group chats | 🔜 Planned |
+| 🛡 **[ChatGuard AI](#-chatguard-ai)** · [@chatguard_nl_bot](https://t.me/chatguard_nl_bot) | AI anti-spam moderator for group chats | 🟢 MVP |
 | 💸 **[SplitMates](#-splitmates)** · [@splitmate_nl_bot](https://t.me/splitmate_nl_bot) | "Who owes whom" for trips and shared purchases, right in the group chat | 🟢 MVP |
 
-**Stack:** Python 3.14 · aiogram 3 · SQLAlchemy 2 (async) · PostgreSQL · Redis · Docker · pytest · GitHub Actions
+**Stack:** Python 3.14 · aiogram 3 · Claude API (Haiku + Opus) · SQLAlchemy 2 (async) · PostgreSQL · Redis · Docker · pytest · GitHub Actions
 
 ---
 
@@ -112,6 +112,26 @@ group chat that already exists.
 
 ---
 
+## 🛡 ChatGuard AI
+
+Spam bots flood Telegram groups with "easy money", crypto and "write me in DM" offers, and
+classic captchas no longer stop them. ChatGuard checks what newcomers actually write.
+
+### How it works
+1. **Only newcomers are checked:** the first 3 messages of each member; admins and people an admin restored are trusted
+2. **Fast rules first** (free, instant): links, chat invites, money/crypto/casino words, DM lures, forwards from channels, link buttons, caps, emoji floods - in Ukrainian, Russian, Polish and English
+3. **AI cascade for doubtful cases:** Claude Haiku decides; when it's less than 80% sure, Claude Opus takes a second look
+4. Spam is deleted, the sender is muted or banned (admin's choice), and the chat gets a report with the **reason** and a **↩️ Restore** button that lifts the punishment and reposts the message
+
+### Engineering details
+- **Cost control:** obvious spam and obviously normal messages never reach the AI; a per-chat daily AI limit falls back to rules when reached; the system prompt is prompt-cached
+- **Graceful degradation:** no API key, an API error or a model refusal never blocks the chat - the message is judged by rules alone
+- **Prompt-injection aware:** the message is passed as untrusted data, and "ignore your instructions" attempts are treated as a spam signal
+- **Structured outputs:** the model returns validated JSON (`is_spam`, `confidence`, `reason`), the reason written in the chat's language
+- Admin rights are checked through Telegram (cached), so only chat admins can change settings or restore people
+
+---
+
 ## 🚀 Quick start
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) and copy its token.
@@ -155,7 +175,8 @@ ruff check .
 - [ ] SlotBook: Telegram Mini App with a calendar view
 - [x] SlotBook: prepayment via Telegram Stars to reduce no-shows
 - [ ] SlotBook: Google Calendar sync
-- [ ] ChatGuard AI: LLM-based spam detection with explanations for admins
+- [x] ChatGuard AI: rules + Claude Haiku -> Opus spam detection with explanations for admins
+- [ ] ChatGuard AI Pro (Telegram Stars): larger chats, shared spammer database
 - [x] SplitMates: inline expense entry, minimal settle-up transfers
 - [x] SplitMates: custom amounts per person
 - [ ] SplitMates Pro (Telegram Stars): receipt photo recognition, export to Excel
