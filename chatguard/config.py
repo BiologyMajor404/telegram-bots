@@ -21,7 +21,7 @@ class ChatGuardSettings(CommonSettings):
     anthropic_api_key: SecretStr = Field(SecretStr(""), validation_alias="ANTHROPIC_API_KEY")
     # Cost guard: AI checks per chat per day; beyond that the chat falls back to rules
     ai_limit_free: int = Field(50, validation_alias="CHATGUARD_AI_LIMIT_FREE")
-    ai_limit_pro: int = Field(500, validation_alias="CHATGUARD_AI_LIMIT_PRO")
+    ai_limit_pro: int = Field(300, validation_alias="CHATGUARD_AI_LIMIT_PRO")
     pro_price_stars: int = Field(250, validation_alias="CHATGUARD_PRO_PRICE_STARS")
     # Shown in /paysupport, e.g. @your_username; empty = no contact line
     support_contact: str = Field("", validation_alias="CHATGUARD_SUPPORT_CONTACT")

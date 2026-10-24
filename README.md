@@ -128,7 +128,7 @@ classic captchas no longer stop them. ChatGuard checks what newcomers actually w
 |---|---|---|
 | Fast rules | ✅ | ✅ |
 | AI model | Claude Haiku | Haiku → **Claude Opus** for hard cases |
-| AI checks per day | 50 | 500 |
+| AI checks per day | 50 | 300 |
 | Shared spammer list (caught in one chat → checked harder in others) | — | ✅ |
 
 `/pro` in a group shows the offer; an admin pays with a monthly Stars subscription that renews automatically. The payment is validated before Telegram charges (real chat, current price, payer is an admin of that chat), renewals extend the plan, and `/paysupport` answers payment questions as Telegram requires.
