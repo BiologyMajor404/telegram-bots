@@ -14,6 +14,15 @@ def user_link(user_id: int, name: str) -> str:
 
 class Ru:
     LANG = "ru"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = "📅 Онлайн-запись к мастеру за пару нажатий, с напоминаниями о визите"
+    BOT_DESCRIPTION = (
+        "📅 SlotBook — онлайн-запись к мастеру.\n\n• выберите услугу, день и "
+        "свободное время\n• напомню о визите за день и за 2 часа\n• отменить запись "
+        "можно в один клик\n\nДля мастера: панель с записями, услугами, рабочими "
+        "часами и предоплатой в Telegram Stars.\n\nНажмите «Старт», чтобы записаться "
+        "👇"
+    )
     WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
     WEEKDAYS_FULL = [
         "Понедельник",
@@ -186,6 +195,16 @@ class Ru:
 
 class En(Ru):
     LANG = "en"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = (
+        "📅 Book an appointment with your master in a few taps, with visit reminders"
+    )
+    BOT_DESCRIPTION = (
+        "📅 SlotBook — online booking for appointments.\n\n• pick a service, a day "
+        "and a free time\n• get reminders a day and 2 hours before the visit\n• "
+        "cancel in one tap\n\nFor the master: a panel with bookings, services, "
+        "working hours and prepayment in Telegram Stars.\n\nPress Start to book 👇"
+    )
     WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     WEEKDAYS_FULL = [
         "Monday",
@@ -336,6 +355,16 @@ class En(Ru):
 
 class Uk(Ru):
     LANG = "uk"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = (
+        "📅 Онлайн-запис до майстра в кілька натискань, з нагадуваннями про візит"
+    )
+    BOT_DESCRIPTION = (
+        "📅 SlotBook — онлайн-запис до майстра.\n\n• оберіть послугу, день і вільний "
+        "час\n• нагадаю про візит за день і за 2 години\n• скасувати запис можна в "
+        "один клік\n\nДля майстра: панель із записами, послугами, робочими годинами "
+        "та передоплатою в Telegram Stars.\n\nНатисніть «Старт», щоб записатися 👇"
+    )
     WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "нд"]
     WEEKDAYS_FULL = ["Понеділок", "Вівторок", "Середа", "Четвер", "Пʼятниця", "Субота", "Неділя"]
     MONTHS = [
@@ -474,6 +503,15 @@ class Uk(Ru):
 
 class Pl(Ru):
     LANG = "pl"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = "📅 Umów wizytę u specjalisty w kilku kliknięciach, z przypomnieniami"
+    BOT_DESCRIPTION = (
+        "📅 SlotBook — rezerwacja wizyt online.\n\n• wybierz usługę, dzień i wolną "
+        "godzinę\n• przypomnę o wizycie dzień i 2 godziny wcześniej\n• wizytę "
+        "odwołasz jednym kliknięciem\n\nDla specjalisty: panel z wizytami, usługami, "
+        "godzinami pracy i przedpłatą w Telegram Stars.\n\nNaciśnij „Start”, aby się "
+        "umówić 👇"
+    )
     WEEKDAYS = ["pon", "wt", "śr", "czw", "pt", "sob", "niedz"]
     WEEKDAYS_FULL = [
         "Poniedziałek",

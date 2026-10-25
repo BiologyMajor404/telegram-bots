@@ -13,7 +13,7 @@ from chatguard.handlers import group, payments, private
 from chatguard.i18n import resolve_lang
 from chatguard.texts import TEXTS, Ru
 from shared.db import init_db
-from shared.i18n import LangMiddleware, command_locales
+from shared.i18n import LangMiddleware, command_locales, set_profile_texts
 from shared.log_setup import setup_logging
 from shared.middlewares import DbSessionMiddleware
 
@@ -84,6 +84,7 @@ async def main() -> None:
     dp.include_routers(payments.router, group.router, private.router)
 
     await set_commands(bot)
+    await set_profile_texts(bot, TEXTS)
     log.info("ChatGuard AI started (AI: %s)", "on" if classifier else "off")
     try:
         await dp.start_polling(bot)

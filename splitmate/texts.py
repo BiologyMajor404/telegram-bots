@@ -18,6 +18,17 @@ def with_description(description: str) -> str:
 
 class Ru:
     LANG = "ru"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = (
+        "💸 Считаю, кто кому должен в групповом чате: поездки, соседи, общие покупки"
+    )
+    BOT_DESCRIPTION = (
+        "💸 SplitMates — общие расходы прямо в групповом чате.\n\n• записывайте "
+        "траты: /add 3000 такси\n• делите поровну или задайте, кто сколько платит\n• "
+        "/balance покажет, кто кому сколько перевести, за минимум переводов\n• "
+        "гривна, злотый, доллар, евро и другие валюты\n\nДобавьте меня в группу, и "
+        "начнём 👇"
+    )
     DEFAULT_CURRENCY = "₴"
 
     # --- Buttons ---
@@ -125,6 +136,16 @@ class Ru:
 
 class En(Ru):
     LANG = "en"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = (
+        "💸 I track who owes whom in your group chat: trips, flatmates, shared purchases"
+    )
+    BOT_DESCRIPTION = (
+        "💸 SplitMates — shared expenses right in your group chat.\n\n• record "
+        "expenses: /add 30 taxi\n• split equally or set who pays what\n• /balance "
+        "shows who should pay whom, with the fewest transfers\n• dollar, euro, "
+        "hryvnia, zloty and other currencies\n\nAdd me to a group to get started 👇"
+    )
     DEFAULT_CURRENCY = "$"
 
     BTN_JOIN = "🙋 I'm in"
@@ -230,6 +251,17 @@ class En(Ru):
 
 class Uk(Ru):
     LANG = "uk"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = (
+        "💸 Рахую, хто кому винен у груповому чаті: подорожі, сусіди, спільні покупки"
+    )
+    BOT_DESCRIPTION = (
+        "💸 SplitMates — спільні витрати просто в груповому чаті.\n\n• записуйте "
+        "витрати: /add 300 таксі\n• діліть порівну або вкажіть, хто скільки платить\n"
+        "• /balance покаже, хто кому скільки переказати, за мінімум переказів\n• "
+        "гривня, злотий, долар, євро та інші валюти\n\nДодайте мене в групу, і "
+        "почнемо 👇"
+    )
     DEFAULT_CURRENCY = "₴"
 
     BTN_JOIN = "🙋 Я з вами"
@@ -337,6 +369,17 @@ class Uk(Ru):
 
 class Pl(Ru):
     LANG = "pl"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = (
+        "💸 Liczę, kto komu ile winien w czacie grupowym: wyjazdy, współlokatorzy, zakupy"
+    )
+    BOT_DESCRIPTION = (
+        "💸 SplitMates — wspólne wydatki prosto w czacie grupowym.\n\n• zapisuj "
+        "wydatki: /add 50 taxi\n• dziel po równo albo ustal, kto ile płaci\n• "
+        "/balance pokaże, kto komu ile przelać, przy jak najmniejszej liczbie "
+        "przelewów\n• złoty, hrywna, dolar, euro i inne waluty\n\nDodaj mnie do "
+        "grupy i zaczynamy 👇"
+    )
     DEFAULT_CURRENCY = "zł"
 
     BTN_JOIN = "🙋 Wchodzę"

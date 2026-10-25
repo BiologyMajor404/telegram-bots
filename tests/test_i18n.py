@@ -84,3 +84,10 @@ def test_command_locales_cover_every_language():
     locales = command_locales()
     assert set(locales) == set(LANGS)
     assert locales["en"] == [None]
+
+
+@pytest.mark.parametrize("module", [slotbook_texts, splitmate_texts, chatguard_texts])
+def test_profile_texts_fit_telegram_limits(module):
+    for t in module.TEXTS.values():
+        assert len(t.BOT_SHORT_DESCRIPTION) <= 120, (t.LANG, len(t.BOT_SHORT_DESCRIPTION))
+        assert len(t.BOT_DESCRIPTION) <= 512, (t.LANG, len(t.BOT_DESCRIPTION))

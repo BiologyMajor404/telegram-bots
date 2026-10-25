@@ -6,7 +6,7 @@ this middleware puts the right one into handler data as `t` (and the code as `la
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from aiogram import BaseMiddleware
+from aiogram import BaseMiddleware, Bot
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardMarkup, TelegramObject
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -68,3 +68,13 @@ class LangMiddleware(BaseMiddleware):
         data["lang"] = lang
         data["t"] = self.catalog[lang]
         return await handler(event, data)
+
+
+async def set_profile_texts(bot: Bot, catalog: dict[str, Any]) -> None:
+    """The texts Telegram shows before a user presses Start (description) and in the bot's
+    profile (short description), in each user's language."""
+    for lang, codes in command_locales().items():
+        t = catalog[lang]
+        for code in codes:
+            await bot.set_my_description(t.BOT_DESCRIPTION, language_code=code)
+            await bot.set_my_short_description(t.BOT_SHORT_DESCRIPTION, language_code=code)

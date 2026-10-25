@@ -8,7 +8,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import BotCommand, BotCommandScopeAllGroupChats, ErrorEvent
 
 from shared.db import init_db
-from shared.i18n import LangMiddleware, command_locales
+from shared.i18n import LangMiddleware, command_locales, set_profile_texts
 from shared.log_setup import setup_logging
 from shared.middlewares import DbSessionMiddleware
 from shared.storage import make_storage
@@ -75,6 +75,7 @@ async def main() -> None:
     dp.include_routers(group.router, private.router, inline.router)
 
     await set_commands(bot)
+    await set_profile_texts(bot, TEXTS)
     log.info("SplitMates started")
     try:
         await dp.start_polling(bot)

@@ -10,6 +10,16 @@ def user_link(user_id: int, name: str) -> str:
 
 class Ru:
     LANG = "ru"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = "🛡 Защищаю групповые чаты от спама: быстрые правила и нейросеть Claude"
+    BOT_DESCRIPTION = (
+        "🛡 ChatGuard AI — антиспам для групповых чатов.\n\n• проверяю первые "
+        "сообщения новых участников\n• явный спам ловлю правилами, сомнительное "
+        "проверяет нейросеть\n• спам удаляю, спамера мучу или баню\n• админам "
+        "объясняю причину и даю кнопку «Вернуть» на случай ошибки\n\nБесплатно: до "
+        "50 проверок нейросетью в день. Pro: больше и умнее.\n\nДобавьте меня в "
+        "группу администратором 👇"
+    )
 
     # --- Buttons ---
     BTN_ADD_TO_GROUP = "➕ Добавить в группу"
@@ -129,6 +139,15 @@ class Ru:
 
 class En(Ru):
     LANG = "en"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = "🛡 I protect group chats from spam: fast rules plus the Claude AI model"
+    BOT_DESCRIPTION = (
+        "🛡 ChatGuard AI — anti-spam for group chats.\n\n• I check the first messages "
+        "of new members\n• obvious spam is caught by rules, doubtful cases go to the "
+        "AI\n• spam is deleted, the spammer muted or banned\n• admins get the reason "
+        "and a “Restore” button in case I'm wrong\n\nFree: up to 50 AI checks a day. "
+        "Pro: more and smarter.\n\nAdd me to a group as an admin 👇"
+    )
 
     BTN_ADD_TO_GROUP = "➕ Add to a group"
     BTN_RESTORE = "↩️ Restore"
@@ -244,6 +263,16 @@ class En(Ru):
 
 class Uk(Ru):
     LANG = "uk"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = "🛡 Захищаю групові чати від спаму: швидкі правила та нейромережа Claude"
+    BOT_DESCRIPTION = (
+        "🛡 ChatGuard AI — антиспам для групових чатів.\n\n• перевіряю перші "
+        "повідомлення нових учасників\n• явний спам ловлю правилами, сумнівне "
+        "перевіряє нейромережа\n• спам видаляю, спамера мучу або баню\n• адмінам "
+        "пояснюю причину й даю кнопку «Повернути» на випадок помилки\n\nБезкоштовно: "
+        "до 50 перевірок нейромережею на день. Pro: більше й розумніше.\n\nДодайте "
+        "мене в групу адміністратором 👇"
+    )
 
     BTN_ADD_TO_GROUP = "➕ Додати в групу"
     BTN_RESTORE = "↩️ Повернути"
@@ -363,6 +392,16 @@ class Uk(Ru):
 
 class Pl(Ru):
     LANG = "pl"
+    # Telegram profile: shown before Start (<=512) and in the profile (<=120)
+    BOT_SHORT_DESCRIPTION = "🛡 Chronię czaty grupowe przed spamem: szybkie reguły i model AI Claude"
+    BOT_DESCRIPTION = (
+        "🛡 ChatGuard AI — antyspam dla czatów grupowych.\n\n• sprawdzam pierwsze "
+        "wiadomości nowych osób\n• oczywisty spam łapią reguły, wątpliwe przypadki "
+        "sprawdza AI\n• spam usuwam, spamera wyciszam lub banuję\n• adminom "
+        "wyjaśniam powód i daję przycisk „Przywróć” na wypadek pomyłki\n\nZa darmo: "
+        "do 50 sprawdzeń przez AI dziennie. Pro: więcej i mądrzej.\n\nDodaj mnie do "
+        "grupy jako administratora 👇"
+    )
 
     BTN_ADD_TO_GROUP = "➕ Dodaj do grupy"
     BTN_RESTORE = "↩️ Przywróć"
