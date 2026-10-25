@@ -1,12 +1,12 @@
 """Generate the bots' profile pictures (640x640 PNG) into assets/avatars/.
 
-Drawn at 4x and downscaled for smooth edges. No fonts or external images needed.
+Drawn at 4x and downscaled for smooth edges. Uses a bold system font for the "$" sign.
 Run: python scripts/make_avatars.py   (needs Pillow: pip install -r requirements-dev.txt)"""
 
 import math
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 SIZE = 640
 SCALE = 4
@@ -57,6 +57,21 @@ def bezier(p0, p1, p2, p3, n: int = 60) -> list[tuple[float, float]]:
         y = u**3 * p0[1] + 3 * u**2 * t * p1[1] + 3 * u * t**2 * p2[1] + t**3 * p3[1]
         pts.append((x, y))
     return pts
+
+
+FONT_CANDIDATES = [
+    "C:/Windows/Fonts/segoeuib.ttf",
+    "C:/Windows/Fonts/arialbd.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+]
+
+
+def bold_font(size: int) -> ImageFont.FreeTypeFont:
+    for path in FONT_CANDIDATES:
+        if Path(path).exists():
+            return ImageFont.truetype(path, size)
+    raise SystemExit("No bold system font found; add one to FONT_CANDIDATES")
 
 
 def check_mark(draw: ImageDraw.ImageDraw, cx: float, cy: float, size: float, color, width: float):
@@ -112,12 +127,9 @@ def splitmates() -> Image.Image:
         outline="#8FD9AE",
         width=round(S * 0.007),
     )
-    cx, cy, r = S / 2, S / 2, S * 0.1
+    cx, cy, r = S / 2, S / 2, S * 0.11
     d.ellipse((cx - r, cy - r, cx + r, cy + r), fill="#16A35C")
-    r2 = r * 0.72
-    d.ellipse((cx - r2, cy - r2, cx + r2, cy + r2), outline="#EFFCF3", width=round(S * 0.008))
-    r3 = r * 0.3
-    d.ellipse((cx - r3, cy - r3, cx + r3, cy + r3), fill="#EFFCF3")
+    d.text((cx, cy), "$", font=bold_font(round(r * 1.45)), fill="#EFFCF3", anchor="mm")
     for ox in (x0 + S * 0.1, x1 - S * 0.1):  # corner ornaments
         for oy in (y0 + S * 0.09, y1 - S * 0.09):
             rr = S * 0.028
