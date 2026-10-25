@@ -1,3 +1,5 @@
+"""Database tables: services, working hours, bookings, settings, user preferences."""
+
 from datetime import datetime, time
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func

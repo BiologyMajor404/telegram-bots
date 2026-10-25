@@ -1,3 +1,5 @@
+"""Group chats: participants, expenses, custom shares, balance and settling up."""
+
 import time
 from contextlib import suppress
 from html import escape
@@ -10,20 +12,21 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, ChatMemberUpdated, ForceReply, Message, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.i18n import CHOOSE_LANGUAGE, SetLang, lang_keyboard
+from shared.formatting import user_link
+from shared.i18n import CHOOSE_LANGUAGE, GROUP_CHATS, SetLang, lang_keyboard
 from splitmate import keyboards as kb
 from splitmate import repo
-from splitmate.i18n import GROUPS
 from splitmate.models import Expense
 from splitmate.money import ShareError, fmt_money, parse_amount, settle_up
-from splitmate.texts import TEXTS, Ru, name, user_link, with_description
+from splitmate.texts import TEXTS, Ru, name, with_description
 
 INLINE_PREFIX = "💸 "  # messages sent through the bot's inline mode start with this
+CURRENCY_MAX_LENGTH = 8  # matches the chats.currency column
 
 router = Router(name="group")
-router.message.filter(F.chat.type.in_(GROUPS))
-router.callback_query.filter(F.message.chat.type.in_(GROUPS))
-router.my_chat_member.filter(F.chat.type.in_(GROUPS))
+router.message.filter(F.chat.type.in_(GROUP_CHATS))
+router.callback_query.filter(F.message.chat.type.in_(GROUP_CHATS))
+router.my_chat_member.filter(F.chat.type.in_(GROUP_CHATS))
 
 
 # Adding the bot via the "Add to group" link produces both a join event and a /start
@@ -67,7 +70,7 @@ async def help_cmd(message: Message, bot: Bot, t: Ru) -> None:
 
 
 @router.message(Command("language"))
-async def language_cmd(message: Message, t: Ru) -> None:
+async def language_cmd(message: Message) -> None:
     await message.answer(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
 
 
@@ -358,7 +361,8 @@ async def ask_again(message: Message, state: FSMContext, text: str) -> None:
     a reply to the bot, otherwise privacy mode hides it from the bot."""
     hint = await message.reply(text, reply_markup=ForceReply(selective=True))
     data = await state.get_data()
-    await state.update_data(cleanup=data.get("cleanup", []) + [message.message_id, hint.message_id])
+    cleanup = [*data.get("cleanup", []), message.message_id, hint.message_id]
+    await state.update_data(cleanup=cleanup)
 
 
 @router.message(EnterShare.amount, F.text)
@@ -487,7 +491,7 @@ async def currency(message: Message, command: CommandObject, session: AsyncSessi
     if not value:
         await message.answer(t.CHOOSE_CURRENCY, reply_markup=kb.currencies())
         return
-    if len(value) > 8:
+    if len(value) > CURRENCY_MAX_LENGTH:
         await message.reply(t.CURRENCY_USAGE)
         return
     chat = await repo.ensure_chat(session, message.chat.id, message.chat.title)

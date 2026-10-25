@@ -7,6 +7,13 @@ import re
 from dataclasses import dataclass, field
 
 SPAM_SCORE = 5  # this many points or more: spam by rules alone
+# Emoji flood: this many emoji, or this share of a message at least EMOJI_MIN_LENGTH long
+EMOJI_MIN_COUNT = 8
+EMOJI_MIN_LENGTH = 10
+EMOJI_MAX_SHARE = 0.2
+# CAPS: more than this share of upper-case letters in a text with enough letters
+CAPS_MIN_LETTERS = 20
+CAPS_MAX_SHARE = 0.6
 
 LINK_RE = re.compile(
     r"(https?://|www\.|\bt\.me/|\btelegram\.me/|\b[\w-]+\.(?:com|ru|ua|pl|io|xyz|top|site|online|"
@@ -148,9 +155,12 @@ def check(
         v.add(1, "phone")
 
     emojis = len(EMOJI_RE.findall(text))
-    if emojis >= 8 or (len(text) >= 10 and emojis / len(text) > 0.2):
+    if emojis >= EMOJI_MIN_COUNT or (
+        len(text) >= EMOJI_MIN_LENGTH and emojis / len(text) > EMOJI_MAX_SHARE
+    ):
         v.add(1, "emoji")
     letters = [c for c in text if c.isalpha()]
-    if len(letters) >= 20 and sum(c.isupper() for c in letters) / len(letters) > 0.6:
+    upper_share = sum(c.isupper() for c in letters) / len(letters) if letters else 0
+    if len(letters) >= CAPS_MIN_LETTERS and upper_share > CAPS_MAX_SHARE:
         v.add(1, "caps")
     return v

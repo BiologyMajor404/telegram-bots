@@ -1,3 +1,5 @@
+"""SplitMates money math: parsing, splitting, balances, settling up."""
+
 import pytest
 
 from splitmate.handlers.inline import plain_amount

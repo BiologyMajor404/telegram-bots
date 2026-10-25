@@ -1,11 +1,7 @@
 """User-facing texts, one class per language.
 Other languages subclass Russian; tests check that they override every text."""
 
-from html import escape
-
-
-def user_link(user_id: int, name: str) -> str:
-    return f'<a href="tg://user?id={user_id}">{escape(name)}</a>'
+from typing import ClassVar
 
 
 class Ru:
@@ -69,7 +65,7 @@ class Ru:
     SOURCE_RULES = "правила"
     SOURCE_AI = "ИИ"
     REASON_RULES = "подозрительные признаки: {signals}"
-    SIGNALS = {
+    SIGNALS: ClassVar[dict[str, str]] = {
         "invite": "приглашение в чат",
         "link": "ссылка",
         "mention": "упоминание канала или бота",
@@ -194,7 +190,7 @@ class En(Ru):
     SOURCE_RULES = "rules"
     SOURCE_AI = "AI"
     REASON_RULES = "suspicious signs: {signals}"
-    SIGNALS = {
+    SIGNALS: ClassVar[dict[str, str]] = {
         "invite": "chat invite",
         "link": "link",
         "mention": "channel or bot mention",
@@ -321,7 +317,7 @@ class Uk(Ru):
     SOURCE_RULES = "правила"
     SOURCE_AI = "ШІ"
     REASON_RULES = "підозрілі ознаки: {signals}"
-    SIGNALS = {
+    SIGNALS: ClassVar[dict[str, str]] = {
         "invite": "запрошення в чат",
         "link": "посилання",
         "mention": "згадка каналу чи бота",
@@ -450,7 +446,7 @@ class Pl(Ru):
     SOURCE_RULES = "reguły"
     SOURCE_AI = "AI"
     REASON_RULES = "podejrzane oznaki: {signals}"
-    SIGNALS = {
+    SIGNALS: ClassVar[dict[str, str]] = {
         "invite": "zaproszenie do czatu",
         "link": "link",
         "mention": "wzmianka o kanale lub bocie",

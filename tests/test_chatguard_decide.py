@@ -1,3 +1,5 @@
+"""ChatGuard: combining rules and AI, the Haiku -> Opus cascade."""
+
 import asyncio
 from types import SimpleNamespace
 

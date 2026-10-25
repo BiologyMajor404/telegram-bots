@@ -1,3 +1,5 @@
+"""Settings every bot reads from .env."""
+
 from zoneinfo import ZoneInfo
 
 from pydantic_settings import BaseSettings, SettingsConfigDict

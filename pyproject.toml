@@ -13,4 +13,15 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+# pycodestyle, pyflakes, imports, pyupgrade, bugbear, simplify, naming, comprehensions,
+# misc. idioms, returns, ruff, pathlib, no print, no commented-out code, unused args, pylint
+select = ["E", "F", "I", "UP", "B", "SIM", "N", "C4", "PIE", "RET", "RUF", "PTH", "T20",
+          "ERA", "ARG", "PL", "TID"]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # Cyrillic and other letters are expected in UI texts
+    "PLR0913", "PLR0917",  # aiogram injects dependencies as handler arguments
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004", "ARG"]  # literal expected values and fake call signatures
+"scripts/*" = ["T201"]  # command-line scripts report with print

@@ -13,7 +13,8 @@ from chatguard import repo
 from chatguard.admins import is_admin
 from chatguard.config import Plans
 from chatguard.models import Chat
-from chatguard.texts import TEXTS, Ru, user_link
+from chatguard.texts import TEXTS, Ru
+from shared.formatting import user_link
 from shared.notify import safe_send
 
 log = logging.getLogger(__name__)

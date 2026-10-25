@@ -1,3 +1,5 @@
+"""Where conversation state (FSM) is kept: Redis, or memory as a fallback."""
+
 import logging
 
 from aiogram.fsm.storage.base import BaseStorage, DefaultKeyBuilder

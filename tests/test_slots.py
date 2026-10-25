@@ -1,3 +1,5 @@
+"""SlotBook slot calculation and working-hours parsing."""
+
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 

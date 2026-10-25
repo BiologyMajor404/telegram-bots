@@ -1,3 +1,5 @@
+"""Group chats: the spam guard itself, reports with Restore, admin settings."""
+
 import logging
 import time
 from contextlib import suppress
@@ -17,18 +19,18 @@ from chatguard.ai import Classifier
 from chatguard.config import Plans
 from chatguard.decide import decide
 from chatguard.handlers.payments import fmt_date, pro_offer
-from chatguard.i18n import GROUPS
 from chatguard.models import Action, Chat
 from chatguard.rules import check
-from chatguard.texts import TEXTS, Ru, user_link
-from shared.i18n import CHOOSE_LANGUAGE, SetLang, lang_keyboard
+from chatguard.texts import TEXTS, Ru
+from shared.formatting import user_link
+from shared.i18n import CHOOSE_LANGUAGE, GROUP_CHATS, SetLang, lang_keyboard
 
 log = logging.getLogger(__name__)
 
 router = Router(name="group")
-router.message.filter(F.chat.type.in_(GROUPS))
-router.callback_query.filter(F.message.chat.type.in_(GROUPS))
-router.my_chat_member.filter(F.chat.type.in_(GROUPS))
+router.message.filter(F.chat.type.in_(GROUP_CHATS))
+router.callback_query.filter(F.message.chat.type.in_(GROUP_CHATS))
+router.my_chat_member.filter(F.chat.type.in_(GROUP_CHATS))
 
 NO_RIGHTS_NOTICE_SEC = 3600  # remind about missing admin rights at most once an hour
 _no_rights_noticed: dict[int, float] = {}

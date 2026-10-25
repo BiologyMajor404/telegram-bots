@@ -1,3 +1,5 @@
+"""SplitMates greets a new group only once."""
+
 from splitmate.handlers import group
 
 

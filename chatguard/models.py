@@ -1,3 +1,5 @@
+"""Database tables: chats with their settings and plan, members, incidents, spammers."""
+
 from datetime import date, datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func

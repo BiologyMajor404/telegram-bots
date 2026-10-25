@@ -1,3 +1,5 @@
+"""Inline keyboards and their callback data."""
+
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 

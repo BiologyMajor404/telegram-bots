@@ -1,3 +1,5 @@
+"""The client side: booking a slot, my bookings, cancelling, language."""
+
 from datetime import UTC, date, datetime
 from html import escape
 from zoneinfo import ZoneInfo
@@ -7,12 +9,13 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shared.formatting import user_link
 from shared.i18n import CHOOSE_LANGUAGE, SetLang, lang_keyboard
 from slotbook import keyboards as kb
 from slotbook import payments, repo, scheduling
 from slotbook.i18n import notify_admins
 from slotbook.models import BookingStatus, Service
-from slotbook.texts import TEXTS, Ru, user_link
+from slotbook.texts import TEXTS, Ru
 
 router = Router(name="client")
 
@@ -37,12 +40,12 @@ async def home(cb: CallbackQuery, admin_ids: set[int], t: Ru) -> None:
 
 
 @router.message(Command("language"))
-async def language_cmd(message: Message, t: Ru) -> None:
+async def language_cmd(message: Message) -> None:
     await message.answer(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
 
 
 @router.callback_query(kb.Menu.filter(F.action == "lang"))
-async def language_menu(cb: CallbackQuery, t: Ru) -> None:
+async def language_menu(cb: CallbackQuery) -> None:
     await cb.message.edit_text(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
     await cb.answer()
 

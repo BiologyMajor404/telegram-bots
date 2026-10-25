@@ -1,3 +1,5 @@
+"""The master's panel: bookings, services, working hours, prepayment."""
+
 import re
 from datetime import datetime, time, timedelta
 from html import escape
@@ -10,11 +12,12 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message, TelegramObject
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shared.formatting import user_link
 from shared.notify import safe_send
 from slotbook import keyboards as kb
 from slotbook import payments, repo, scheduling
 from slotbook.models import BookingStatus, WorkDay
-from slotbook.texts import Ru, user_link
+from slotbook.texts import Ru
 
 
 class IsAdmin(Filter):

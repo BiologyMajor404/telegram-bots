@@ -1,3 +1,5 @@
+"""Telegram Stars deposit: pre-checkout check, payment, /paysupport."""
+
 import logging
 from zoneinfo import ZoneInfo
 
@@ -6,11 +8,12 @@ from aiogram.filters import Command
 from aiogram.types import Message, PreCheckoutQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shared.formatting import user_link
 from slotbook import keyboards as kb
 from slotbook import payments, repo
 from slotbook.i18n import notify_admins
 from slotbook.models import BookingStatus
-from slotbook.texts import Ru, user_link
+from slotbook.texts import Ru
 
 log = logging.getLogger(__name__)
 router = Router(name="payments")

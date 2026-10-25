@@ -1,3 +1,5 @@
+"""Middleware that gives each update its own database session."""
+
 from collections.abc import Awaitable, Callable
 from typing import Any
 

@@ -1,3 +1,5 @@
+"""Private chat with the bot: explains how to add it to a group."""
+
 from aiogram import Bot, F, Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message

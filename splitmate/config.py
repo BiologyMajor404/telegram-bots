@@ -1,3 +1,5 @@
+"""SplitMates settings from .env."""
+
 from pydantic import Field, SecretStr, field_validator
 
 from shared.config import CommonSettings

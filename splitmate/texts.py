@@ -8,10 +8,6 @@ def name(n: str) -> str:
     return f"<b>{escape(n)}</b>"
 
 
-def user_link(user_id: int, first_name: str) -> str:
-    return f'<a href="tg://user?id={user_id}">{escape(first_name)}</a>'
-
-
 def with_description(description: str) -> str:
     return f" — {escape(description)}" if description else ""
 

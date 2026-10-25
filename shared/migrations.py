@@ -1,3 +1,5 @@
+"""Runs a bot's Alembic migrations on startup."""
+
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import Connection, inspect

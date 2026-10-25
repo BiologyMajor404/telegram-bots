@@ -1,3 +1,5 @@
+"""ChatGuard fast spam rules in four languages."""
+
 import pytest
 
 from chatguard.rules import check

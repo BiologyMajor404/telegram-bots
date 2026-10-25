@@ -1,14 +1,14 @@
+"""Entry point of SplitMates: `python -m splitmate`."""
+
 import asyncio
 import logging
 
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import BotCommand, BotCommandScopeAllGroupChats, ErrorEvent
+from aiogram import Dispatcher
+from aiogram.types import BotCommand
 
+from shared.bot_setup import create_bot, on_error, set_commands
 from shared.db import init_db
-from shared.i18n import LangMiddleware, command_locales, set_profile_texts
+from shared.i18n import LangMiddleware, set_profile_texts
 from shared.log_setup import setup_logging
 from shared.middlewares import DbSessionMiddleware
 from shared.storage import make_storage
@@ -18,6 +18,10 @@ from splitmate.i18n import resolve_lang
 from splitmate.texts import TEXTS, Ru
 
 log = logging.getLogger("splitmate")
+
+
+def private_commands(t: Ru) -> list[BotCommand]:
+    return [BotCommand(command="start", description=t.CMD_START)]
 
 
 def group_commands(t: Ru) -> list[BotCommand]:
@@ -33,40 +37,12 @@ def group_commands(t: Ru) -> list[BotCommand]:
     ]
 
 
-async def set_commands(bot: Bot) -> None:
-    # Each Telegram app language gets the command lists in the language `detect` gives it
-    for lang, codes in command_locales().items():
-        t = TEXTS[lang]
-        for code in codes:
-            await bot.set_my_commands(
-                group_commands(t), scope=BotCommandScopeAllGroupChats(), language_code=code
-            )
-            await bot.set_my_commands(
-                [BotCommand(command="start", description=t.CMD_START)], language_code=code
-            )
-
-
-async def on_error(event: ErrorEvent) -> bool:
-    # Pressing the same button twice tries to set identical text; that's harmless
-    if isinstance(event.exception, TelegramBadRequest) and "message is not modified" in str(
-        event.exception
-    ):
-        if event.update.callback_query:
-            await event.update.callback_query.answer()
-        return True
-    log.exception("Unhandled error", exc_info=event.exception)
-    return True
-
-
 async def main() -> None:
     settings = SplitMateSettings()
     setup_logging(settings.log_level)
     engine, session_factory = await init_db(settings.database_url, "splitmate:migrations")
 
-    bot = Bot(
-        settings.token.get_secret_value(),
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
+    bot = create_bot(settings.token)
     # FSM keeps the "enter an amount" step; Redis lets it survive restarts
     dp = Dispatcher(storage=make_storage(settings.redis_url, prefix="splitmate"))
     dp.update.middleware(DbSessionMiddleware(session_factory))
@@ -74,7 +50,7 @@ async def main() -> None:
     dp.errors.register(on_error)
     dp.include_routers(group.router, private.router, inline.router)
 
-    await set_commands(bot)
+    await set_commands(bot, TEXTS, private=private_commands, group=group_commands)
     await set_profile_texts(bot, TEXTS)
     log.info("SplitMates started")
     try:

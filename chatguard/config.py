@@ -1,3 +1,5 @@
+"""ChatGuard AI settings from .env and the Free/Pro plan limits."""
+
 from dataclasses import dataclass
 
 from pydantic import Field, SecretStr, field_validator

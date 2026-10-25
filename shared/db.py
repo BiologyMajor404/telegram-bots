@@ -1,3 +1,5 @@
+"""Database engine and session factory, with migrations applied on startup."""
+
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,

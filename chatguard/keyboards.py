@@ -1,3 +1,5 @@
+"""Inline keyboards and their callback data."""
+
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder

@@ -1,3 +1,5 @@
+"""Logging format shared by all bots."""
+
 import logging
 
 

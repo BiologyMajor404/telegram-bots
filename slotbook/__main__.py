@@ -1,14 +1,14 @@
+"""Entry point of SlotBook: `python -m slotbook`."""
+
 import asyncio
 import logging
 
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import BotCommand, ErrorEvent
+from aiogram import Dispatcher
+from aiogram.types import BotCommand
 
+from shared.bot_setup import create_bot, on_error, set_commands
 from shared.db import init_db
-from shared.i18n import LangMiddleware, command_locales, set_profile_texts
+from shared.i18n import LangMiddleware, set_profile_texts
 from shared.log_setup import setup_logging
 from shared.middlewares import DbSessionMiddleware
 from shared.storage import make_storage
@@ -22,31 +22,12 @@ from slotbook.texts import TEXTS, Ru
 log = logging.getLogger("slotbook")
 
 
-async def on_error(event: ErrorEvent) -> bool:
-    # Pressing the same button twice tries to set identical text; that's harmless
-    if isinstance(event.exception, TelegramBadRequest) and "message is not modified" in str(
-        event.exception
-    ):
-        if event.update.callback_query:
-            await event.update.callback_query.answer()
-        return True
-    log.exception("Unhandled error", exc_info=event.exception)
-    return True
-
-
 def commands(t: Ru) -> list[BotCommand]:
     return [
         BotCommand(command="start", description=t.CMD_START),
         BotCommand(command="language", description=t.CMD_LANGUAGE),
         BotCommand(command="paysupport", description=t.CMD_PAYSUPPORT),
     ]
-
-
-async def set_commands(bot: Bot) -> None:
-    # Each Telegram app language gets the command list in the language `detect` gives it
-    for lang, codes in command_locales().items():
-        for code in codes:
-            await bot.set_my_commands(commands(TEXTS[lang]), language_code=code)
 
 
 async def main() -> None:
@@ -63,10 +44,7 @@ async def main() -> None:
     async with session_factory() as session:
         await repo.seed_defaults(session)
 
-    bot = Bot(
-        settings.token.get_secret_value(),
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
+    bot = create_bot(settings.token)
     dp = Dispatcher(
         storage=make_storage(settings.redis_url, prefix="slotbook"),
         admin_ids=settings.admin_ids,
@@ -78,7 +56,7 @@ async def main() -> None:
     # Admin router goes first so its FSM steps win over the client fallback handler
     dp.include_routers(admin.router, payments.router, client.router)
 
-    await set_commands(bot)
+    await set_commands(bot, TEXTS, private=commands)
     await set_profile_texts(bot, TEXTS)
     reminders = asyncio.create_task(reminder_loop(bot, session_factory, settings.tz))
     log.info("SlotBook started")

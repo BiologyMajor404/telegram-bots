@@ -30,6 +30,7 @@ def command_locales() -> dict[str, list[str | None]]:
 
 
 Resolver = Callable[[dict[str, Any]], Awaitable[str]]
+GROUP_CHATS = {"group", "supergroup"}
 
 
 def detect(language_code: str | None) -> str:
@@ -78,3 +79,20 @@ async def set_profile_texts(bot: Bot, catalog: dict[str, Any]) -> None:
         for code in codes:
             await bot.set_my_description(t.BOT_DESCRIPTION, language_code=code)
             await bot.set_my_short_description(t.BOT_SHORT_DESCRIPTION, language_code=code)
+
+
+def group_lang_resolver(ensure_chat: Callable[..., Awaitable[Any]]) -> Resolver:
+    """For bots that work in groups: a group has one stored language (the first person to
+    talk to the bot there sets it), private chats and inline queries follow the user's
+    Telegram language. `ensure_chat(session, chat_id, title, lang)` returns the stored chat."""
+
+    async def resolve(data: dict[str, Any]) -> str:
+        user = data.get("event_from_user")
+        fallback = detect(user.language_code if user else None)
+        chat = data.get("event_chat")
+        if chat is not None and chat.type in GROUP_CHATS:
+            stored = await ensure_chat(data["session"], chat.id, chat.title, fallback)
+            return stored.lang
+        return fallback
+
+    return resolve

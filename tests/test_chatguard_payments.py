@@ -1,3 +1,5 @@
+"""ChatGuard Pro payments: subscription dates and payloads."""
+
 from datetime import UTC, datetime, timedelta
 
 from chatguard.handlers.payments import parse_pro_payload, pro_payload, subscription_end

@@ -1,3 +1,5 @@
+"""Background jobs: visit reminders and releasing unpaid holds."""
+
 import asyncio
 import logging
 from datetime import timedelta

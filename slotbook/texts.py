@@ -8,10 +8,6 @@ from zoneinfo import ZoneInfo
 from slotbook.models import Booking, Service
 
 
-def user_link(user_id: int, name: str) -> str:
-    return f'<a href="tg://user?id={user_id}">{escape(name)}</a>'
-
-
 class Ru:
     LANG = "ru"
     # Telegram profile: shown before Start (<=512) and in the profile (<=120)
@@ -23,8 +19,8 @@ class Ru:
         "часами и предоплатой в Telegram Stars.\n\nНажмите «Старт», чтобы записаться "
         "👇"
     )
-    WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
-    WEEKDAYS_FULL = [
+    WEEKDAYS = ("пн", "вт", "ср", "чт", "пт", "сб", "вс")
+    WEEKDAYS_FULL = (
         "Понедельник",
         "Вторник",
         "Среда",
@@ -32,8 +28,8 @@ class Ru:
         "Пятница",
         "Суббота",
         "Воскресенье",
-    ]
-    MONTHS = [
+    )
+    MONTHS = (
         "января",
         "февраля",
         "марта",
@@ -46,7 +42,7 @@ class Ru:
         "октября",
         "ноября",
         "декабря",
-    ]
+    )
     MIN = "мин"
     DAY_OFF = "выходной"
     # The master's currency, same for every language; set from SLOTBOOK_CURRENCY at startup
@@ -205,8 +201,8 @@ class En(Ru):
         "cancel in one tap\n\nFor the master: a panel with bookings, services, "
         "working hours and prepayment in Telegram Stars.\n\nPress Start to book 👇"
     )
-    WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    WEEKDAYS_FULL = [
+    WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    WEEKDAYS_FULL = (
         "Monday",
         "Tuesday",
         "Wednesday",
@@ -214,8 +210,8 @@ class En(Ru):
         "Friday",
         "Saturday",
         "Sunday",
-    ]
-    MONTHS = [
+    )
+    MONTHS = (
         "January",
         "February",
         "March",
@@ -228,7 +224,7 @@ class En(Ru):
         "October",
         "November",
         "December",
-    ]
+    )
     MIN = "min"
     DAY_OFF = "day off"
 
@@ -365,9 +361,9 @@ class Uk(Ru):
         "один клік\n\nДля майстра: панель із записами, послугами, робочими годинами "
         "та передоплатою в Telegram Stars.\n\nНатисніть «Старт», щоб записатися 👇"
     )
-    WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "нд"]
-    WEEKDAYS_FULL = ["Понеділок", "Вівторок", "Середа", "Четвер", "Пʼятниця", "Субота", "Неділя"]
-    MONTHS = [
+    WEEKDAYS = ("пн", "вт", "ср", "чт", "пт", "сб", "нд")
+    WEEKDAYS_FULL = ("Понеділок", "Вівторок", "Середа", "Четвер", "Пʼятниця", "Субота", "Неділя")
+    MONTHS = (
         "січня",
         "лютого",
         "березня",
@@ -380,7 +376,7 @@ class Uk(Ru):
         "жовтня",
         "листопада",
         "грудня",
-    ]
+    )
     MIN = "хв"
     DAY_OFF = "вихідний"
 
@@ -512,8 +508,8 @@ class Pl(Ru):
         "godzinami pracy i przedpłatą w Telegram Stars.\n\nNaciśnij „Start”, aby się "
         "umówić 👇"
     )
-    WEEKDAYS = ["pon", "wt", "śr", "czw", "pt", "sob", "niedz"]
-    WEEKDAYS_FULL = [
+    WEEKDAYS = ("pon", "wt", "śr", "czw", "pt", "sob", "niedz")
+    WEEKDAYS_FULL = (
         "Poniedziałek",
         "Wtorek",
         "Środa",
@@ -521,8 +517,8 @@ class Pl(Ru):
         "Piątek",
         "Sobota",
         "Niedziela",
-    ]
-    MONTHS = [
+    )
+    MONTHS = (
         "stycznia",
         "lutego",
         "marca",
@@ -535,7 +531,7 @@ class Pl(Ru):
         "października",
         "listopada",
         "grudnia",
-    ]
+    )
     MIN = "min"
     DAY_OFF = "wolne"
 
