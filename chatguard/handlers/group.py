@@ -6,7 +6,7 @@ from html import escape
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
-from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command
+from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, CommandObject
 from aiogram.types import CallbackQuery, ChatMemberUpdated, ChatPermissions, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,7 +51,15 @@ async def bot_added(event: ChatMemberUpdated, bot: Bot, t: Ru) -> None:
     await bot.send_message(event.chat.id, t.WELCOME_GROUP)
 
 
-@router.message(Command("start", "help"))
+@router.message(Command("start"))
+async def start_cmd(message: Message, command: CommandObject, t: Ru) -> None:
+    # Telegram hands a bare /start in a group to whichever bot spoke last, so it may be
+    # meant for another bot: answer only /start@this_bot (joining is greeted separately)
+    if command.mention is not None:
+        await message.answer(t.WELCOME_GROUP)
+
+
+@router.message(Command("help"))
 async def help_cmd(message: Message, t: Ru) -> None:
     await message.answer(t.WELCOME_GROUP)
 

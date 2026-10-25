@@ -50,9 +50,12 @@ async def bot_added(event: ChatMemberUpdated, bot: Bot, t: Ru) -> None:
 
 
 @router.message(Command("start"))
-async def start_cmd(message: Message, bot: Bot, t: Ru) -> None:
-    if not just_welcomed(message.chat.id):
-        await message.answer(await welcome_text(bot, t), reply_markup=kb.join(t))
+async def start_cmd(message: Message, command: CommandObject, bot: Bot, t: Ru) -> None:
+    # Telegram hands a bare /start in a group to whichever bot spoke last, so it may be
+    # meant for another bot: answer only /start@this_bot (joining is greeted separately)
+    if command.mention is None or just_welcomed(message.chat.id):
+        return
+    await message.answer(await welcome_text(bot, t), reply_markup=kb.join(t))
 
 
 @router.message(Command("help"))
