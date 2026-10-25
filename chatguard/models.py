@@ -32,7 +32,7 @@ class Chat(Base):
     # Pro subscription (Telegram Stars), paid by one of the admins
     pro_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pro_owner_id: Mapped[int | None] = mapped_column(BigInteger)
-    pro_charge_id: Mapped[str | None] = mapped_column(String(128))
+    pro_charge_id: Mapped[str | None] = mapped_column(String(512))
 
 
 class Spammer(Base):

@@ -70,6 +70,6 @@ class Booking(Base):
     reminded_24h: Mapped[bool] = mapped_column(default=False)
     reminded_2h: Mapped[bool] = mapped_column(default=False)
     deposit_stars: Mapped[int] = mapped_column(default=0, server_default="0")
-    payment_charge_id: Mapped[str | None] = mapped_column(String(128))
+    payment_charge_id: Mapped[str | None] = mapped_column(String(512))
     refunded: Mapped[bool] = mapped_column(default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

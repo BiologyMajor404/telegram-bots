@@ -41,6 +41,15 @@ def fmt_date(dt: datetime) -> str:
     return dt.strftime("%d.%m.%Y")
 
 
+def subscription_end(expiration: int | datetime | None) -> datetime:
+    """Telegram sends the subscription end as a Unix timestamp; fall back to a full period."""
+    if expiration is None:
+        return datetime.now(UTC) + PRO_PERIOD
+    if isinstance(expiration, int):
+        return datetime.fromtimestamp(expiration, UTC)
+    return expiration if expiration.tzinfo else expiration.replace(tzinfo=UTC)
+
+
 async def pro_offer(
     bot: Bot, chat: Chat, t: Ru, plans: Plans
 ) -> tuple[str, InlineKeyboardMarkup | None]:
@@ -91,12 +100,7 @@ async def successful_payment(message: Message, session: AsyncSession, bot: Bot, 
         log.error("Pro payment %s for unknown chat", payment.telegram_payment_charge_id)
         return
 
-    if payment.subscription_expiration_date:
-        until = payment.subscription_expiration_date
-        if until.tzinfo is None:
-            until = until.replace(tzinfo=UTC)
-    else:
-        until = datetime.now(UTC) + PRO_PERIOD
+    until = subscription_end(payment.subscription_expiration_date)
     await repo.activate_pro(
         session, chat, until, message.from_user.id, payment.telegram_payment_charge_id
     )
