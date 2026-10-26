@@ -160,7 +160,13 @@ async def create_booking(
         return
     starts_at = datetime.fromtimestamp(callback_data.ts, UTC)
     deposit = await repo.get_deposit(session)
-    booking = await scheduling.book(session, service, starts_at, cb.from_user, tz, deposit)
+    try:
+        booking = await scheduling.book(session, service, starts_at, cb.from_user, tz, deposit)
+    except scheduling.BookingLimitError:
+        await cb.answer(
+            t.TOO_MANY_BOOKINGS.format(limit=scheduling.MAX_OPEN_BOOKINGS), show_alert=True
+        )
+        return
     if booking is None:
         await cb.answer(t.SLOT_TAKEN, show_alert=True)
         day = starts_at.astimezone(tz).date()

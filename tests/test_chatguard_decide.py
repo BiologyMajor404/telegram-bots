@@ -23,33 +23,41 @@ def run(coro):
     return asyncio.run(coro)
 
 
+async def allowed():
+    return True
+
+
+async def denied():
+    return False
+
+
 def test_rule_spam_skips_ai():
     fake = FakeClassifier(None)
-    d = run(decide("x", check("Заработок крипта инвест пиши в лс t.me/+abc"), "ru", fake, True))
+    d = run(decide("x", check("Заработок крипта инвест пиши в лс t.me/+abc"), "ru", fake, allowed))
     assert d.is_spam and d.source == "rules" and fake.calls == 0
 
 
 def test_clean_message_skips_ai():
     fake = FakeClassifier(None)
-    d = run(decide("Привет", check("Привет"), "ru", fake, True))
+    d = run(decide("Привет", check("Привет"), "ru", fake, allowed))
     assert not d.is_spam and fake.calls == 0
 
 
 def test_doubtful_goes_to_ai():
     fake = FakeClassifier(AiVerdict(True, 95, "Реклама канала", "haiku"))
-    d = run(decide("text", check("Смотрите https://site.xyz"), "ru", fake, True))
+    d = run(decide("text", check("Смотрите https://site.xyz"), "ru", fake, allowed))
     assert d.is_spam and d.source == "haiku" and d.reason == "Реклама канала"
 
 
 def test_doubtful_passes_without_ai_or_budget():
     v = check("Смотрите https://site.xyz")
-    assert not run(decide("t", v, "ru", None, True)).is_spam
+    assert not run(decide("t", v, "ru", None, allowed)).is_spam
     fake = FakeClassifier(AiVerdict(True, 95, "r", "haiku"))
-    assert not run(decide("t", v, "ru", fake, False)).is_spam and fake.calls == 0
+    assert not run(decide("t", v, "ru", fake, denied)).is_spam and fake.calls == 0
 
 
 def test_ai_failure_lets_message_pass():
-    d = run(decide("t", check("Смотрите https://site.xyz"), "ru", FakeClassifier(None), True))
+    d = run(decide("t", check("Смотрите https://site.xyz"), "ru", FakeClassifier(None), allowed))
     assert not d.is_spam and d.source == "none"
 
 
@@ -131,9 +139,9 @@ def test_unsure_spam_verdict_lets_message_pass():
     # Seen on the real API: Haiku said "spam" at 72% about a person selling a bike
     v = check("Смотрите https://site.xyz")
     unsure = FakeClassifier(AiVerdict(True, 72, "maybe an ad", "haiku"))
-    assert not run(decide("t", v, "pl", unsure, True)).is_spam
+    assert not run(decide("t", v, "pl", unsure, allowed)).is_spam
     sure = FakeClassifier(AiVerdict(True, 85, "ad", "haiku"))
-    assert run(decide("t", v, "pl", sure, True)).is_spam
+    assert run(decide("t", v, "pl", sure, allowed)).is_spam
     assert not run(
-        decide("t", v, "pl", FakeClassifier(AiVerdict(True, 60, "r", "opus")), True)
+        decide("t", v, "pl", FakeClassifier(AiVerdict(True, 60, "r", "opus")), allowed)
     ).is_spam

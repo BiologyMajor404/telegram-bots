@@ -8,7 +8,7 @@ from aiogram.types import BotCommand
 
 from chatguard.ai import Classifier
 from chatguard.config import ChatGuardSettings
-from chatguard.handlers import group, payments, private
+from chatguard.handlers import group, guard, payments, private
 from chatguard.i18n import resolve_lang
 from chatguard.texts import TEXTS, Ru
 from shared.bot_setup import create_bot, on_error, set_commands
@@ -55,8 +55,9 @@ async def main() -> None:
     dp.update.middleware(DbSessionMiddleware(session_factory))
     dp.update.middleware(LangMiddleware(resolve_lang, TEXTS))  # needs the DB session
     dp.errors.register(on_error)
-    # Payments first: payment messages arrive in private chats, where the catch-all lives
-    dp.include_routers(payments.router, group.router, private.router)
+    # Payments first: payment messages arrive in private chats, where the catch-all lives.
+    # The guard goes before the group handlers so every group message is checked first.
+    dp.include_routers(payments.router, guard.router, group.router, private.router)
 
     await set_commands(bot, TEXTS, private=private_commands, group=group_commands)
     await set_profile_texts(bot, TEXTS)

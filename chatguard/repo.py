@@ -2,10 +2,12 @@
 
 from datetime import date, datetime
 
+from sqlalchemy import case, or_, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chatguard.config import Plans
-from chatguard.models import Chat, Incident, Member, Spammer
+from chatguard.models import AiUsage, Chat, Incident, Member, Spammer
 
 # How many first messages of a new member get checked
 CHECK_FIRST = 3
@@ -49,13 +51,46 @@ def ai_limit(chat: Chat, now: datetime, plans: Plans) -> int:
 
 
 def ai_budget_left(chat: Chat, today: date, limit: int) -> bool:
+    """For display only; spending goes through the atomic reserve_* functions."""
     return chat.ai_day != today or chat.ai_checks < limit
 
 
-def spend_ai_check(chat: Chat, today: date) -> None:
-    if chat.ai_day != today:
-        chat.ai_day, chat.ai_checks = today, 0
-    chat.ai_checks += 1
+async def reserve_ai_check(session: AsyncSession, chat_id: int, today: date, limit: int) -> bool:
+    """Take one AI check from the chat's daily budget in a single UPDATE, so concurrent
+    messages can't all pass a stale "budget left" check."""
+    result = await session.execute(
+        update(Chat)
+        .where(Chat.id == chat_id, or_(Chat.ai_day.is_distinct_from(today), Chat.ai_checks < limit))
+        .values(ai_checks=case((Chat.ai_day == today, Chat.ai_checks + 1), else_=1), ai_day=today)
+        .returning(Chat.id)
+        .execution_options(synchronize_session=False)
+    )
+    await session.commit()
+    return result.first() is not None
+
+
+async def reserve_global_ai_check(session: AsyncSession, today: date, limit: int) -> bool:
+    """The same for the whole bot, so many small chats can't add up to a huge bill."""
+    stmt = pg_insert(AiUsage).values(day=today, checks=1)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[AiUsage.day],
+        set_={"checks": AiUsage.checks + 1},
+        where=AiUsage.checks < limit,
+    ).returning(AiUsage.checks)
+    result = await session.execute(stmt)
+    await session.commit()
+    return result.first() is not None
+
+
+async def bump_stats(
+    session: AsyncSession, chat_id: int, checked: int = 0, caught: int = 0
+) -> None:
+    await session.execute(
+        update(Chat)
+        .where(Chat.id == chat_id)
+        .values(checked=Chat.checked + checked, caught=Chat.caught + caught)
+        .execution_options(synchronize_session=False)
+    )
 
 
 async def activate_pro(

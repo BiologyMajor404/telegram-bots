@@ -1,5 +1,6 @@
 """Combine the rules and the AI into one decision."""
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from chatguard.ai import CONFIDENT, AiVerdict, Classifier
@@ -23,12 +24,14 @@ async def decide(
     rules: RulesVerdict,
     lang: str,
     classifier: Classifier | None,
-    ai_allowed: bool,
+    reserve_ai: Callable[[], Awaitable[bool]],
     allow_opus: bool = False,
 ) -> Decision:
+    """`reserve_ai` takes one AI check from the budgets; it's called only when the AI is
+    really needed, so clear-cut messages never use the budget."""
     if rules.is_spam:
         return Decision(True, "rules", rules=rules)
-    if rules.is_clean or classifier is None or not ai_allowed:
+    if rules.is_clean or classifier is None or not await reserve_ai():
         # Without the AI only clear-cut rule hits count; doubtful messages pass
         return Decision(False, "none", rules=rules)
     verdict: AiVerdict | None = await classifier.classify(

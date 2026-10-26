@@ -108,6 +108,10 @@ class Ru:
     NO_TIME = "На этот день время уже разобрали, выберите другой"
     CONFIRM = "Проверьте запись:\n\n<b>{dt}</b>\n{service}\n\nВсё верно?"
     SLOT_TAKEN = "Упс, это время только что заняли. Выберите другое 🙏"
+    TOO_MANY_BOOKINGS = (
+        "У вас уже {limit} предстоящие записи, это максимум. Отмените одну в «Мои "
+        "записи», чтобы записаться снова."
+    )
     BOOKED = (
         "✅ Вы записаны!\n\n{booking}\n\n"
         "Я напомню за день и за 2 часа до визита. Отменить запись можно в «Мои записи»."
@@ -269,6 +273,10 @@ class En(Ru):
     NO_TIME = "This day is fully booked, please choose another"
     CONFIRM = "Check your booking:\n\n<b>{dt}</b>\n{service}\n\nIs everything correct?"
     SLOT_TAKEN = "Oops, someone just took this time. Please choose another 🙏"
+    TOO_MANY_BOOKINGS = (
+        "You already have {limit} upcoming bookings, that's the maximum. Cancel one "
+        "in “My bookings” to book again."
+    )
     BOOKED = (
         "✅ You're booked!\n\n{booking}\n\n"
         "I'll remind you a day and 2 hours before the visit. "
@@ -421,6 +429,10 @@ class Uk(Ru):
     NO_TIME = "На цей день час уже розібрали, оберіть інший"
     CONFIRM = "Перевірте запис:\n\n<b>{dt}</b>\n{service}\n\nУсе правильно?"
     SLOT_TAKEN = "Йой, цей час щойно зайняли. Оберіть інший 🙏"
+    TOO_MANY_BOOKINGS = (
+        "У вас уже {limit} майбутні записи, це максимум. Скасуйте один у «Мої "
+        "записи», щоб записатися знову."
+    )
     BOOKED = (
         "✅ Ви записані!\n\n{booking}\n\n"
         "Я нагадаю за день і за 2 години до візиту. Скасувати запис можна в «Мої записи»."
@@ -576,6 +588,10 @@ class Pl(Ru):
     NO_TIME = "Ten dzień jest już zajęty, wybierz inny"
     CONFIRM = "Sprawdź wizytę:\n\n<b>{dt}</b>\n{service}\n\nWszystko się zgadza?"
     SLOT_TAKEN = "Ups, ktoś właśnie zajął ten termin. Wybierz inny 🙏"
+    TOO_MANY_BOOKINGS = (
+        "Masz już {limit} nadchodzące wizyty, to maksimum. Odwołaj jedną w „Moje "
+        "wizyty”, aby umówić się ponownie."
+    )
     BOOKED = (
         "✅ Wizyta umówiona!\n\n{booking}\n\n"
         "Przypomnę Ci dzień i 2 godziny przed wizytą. Odwołać możesz w „Moje wizyty”."

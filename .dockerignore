@@ -7,3 +7,6 @@
 .ruff_cache
 tests
 docs
+logs
+assets
+scripts

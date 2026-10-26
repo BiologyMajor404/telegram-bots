@@ -2,7 +2,7 @@
 
 from datetime import datetime, time
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from slotbook.models import Booking, BookingStatus, Service, Setting, UserPrefs, WorkDay
@@ -155,6 +155,18 @@ async def upcoming_user_bookings(
         .order_by(Booking.starts_at)
     )
     return list(result)
+
+
+async def count_open_bookings(session: AsyncSession, user_id: int, now: datetime) -> int:
+    return await session.scalar(
+        select(func.count())
+        .select_from(Booking)
+        .where(
+            Booking.user_id == user_id,
+            Booking.status.in_([BookingStatus.ACTIVE, BookingStatus.PENDING]),
+            Booking.starts_at > now,
+        )
+    )
 
 
 async def cancel_booking(session: AsyncSession, booking: Booking) -> None:

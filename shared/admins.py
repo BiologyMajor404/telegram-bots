@@ -1,11 +1,12 @@
-"""Is this user an admin of the chat? Cached for a few minutes to spare Telegram API calls."""
+"""Is this user an admin of the chat? Cached briefly to spare Telegram API calls."""
 
 import time
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
 
-CACHE_SEC = 300
+# Short, so a demoted admin loses their rights within a minute
+CACHE_SEC = 60
 _cache: dict[tuple[int, int], tuple[bool, float]] = {}
 
 

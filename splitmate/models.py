@@ -39,7 +39,7 @@ class Expense(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id"), index=True)
     payer_id: Mapped[int] = mapped_column(BigInteger)
-    amount: Mapped[int]
+    amount: Mapped[int] = mapped_column(BigInteger)
     description: Mapped[str] = mapped_column(String(128))
     is_deleted: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -55,7 +55,7 @@ class Share(Base):
 
     expense_id: Mapped[int] = mapped_column(ForeignKey("expenses.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
-    amount: Mapped[int]
+    amount: Mapped[int] = mapped_column(BigInteger)
     # Set by hand ("who pays how much"); the others split the rest equally
     fixed: Mapped[bool] = mapped_column(default=False, server_default="false")
 
@@ -69,5 +69,5 @@ class Settlement(Base):
     chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id"), index=True)
     from_id: Mapped[int] = mapped_column(BigInteger)
     to_id: Mapped[int] = mapped_column(BigInteger)
-    amount: Mapped[int]
+    amount: Mapped[int] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -11,6 +11,12 @@ from slotbook.models import Booking, BookingStatus, Service
 from slotbook.slots import available_slots
 
 BOOKING_HORIZON_DAYS = 14
+# Upcoming bookings (paid or waiting for payment) one client may hold at once
+MAX_OPEN_BOOKINGS = 3
+
+
+class BookingLimitError(Exception):
+    """The client already holds MAX_OPEN_BOOKINGS upcoming bookings."""
 
 
 def now_utc() -> datetime:
@@ -59,10 +65,20 @@ async def book(
     tz: ZoneInfo,
     deposit: int = 0,
 ) -> Booking | None:
-    """Create a booking or return None if the slot is no longer free.
+    """Create a booking or return None if the slot is no longer free (or outside the booking
+    window). Raises BookingLimitError if the client already has too many open bookings.
     With a deposit the booking stays PENDING (slot held) until the client pays."""
     await repo.lock_bookings(session)
+    # Checked under the lock: the slot comes from client-controlled callback data, and
+    # parallel button presses must not slip past the per-client limit
+    now = now_utc()
     day = starts_at.astimezone(tz).date()
+    if day >= now.astimezone(tz).date() + timedelta(days=BOOKING_HORIZON_DAYS):
+        await session.rollback()
+        return None
+    if await repo.count_open_bookings(session, user.id, now) >= MAX_OPEN_BOOKINGS:
+        await session.rollback()
+        raise BookingLimitError
     if starts_at not in await free_slots(session, service, tz, day):
         await session.rollback()
         return None

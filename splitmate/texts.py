@@ -91,10 +91,11 @@ class Ru:
 
     BALANCE_EMPTY = "✅ Все в расчёте, никто никому не должен"
     BALANCE = "📊 <b>Баланс</b>\n\n{lines}\n\n💸 <b>Чтобы рассчитаться:</b>\n{transfers}"
-    BALANCE_HINT = "\n\nКогда долг вернули, нажмите кнопку с этим переводом."
+    BALANCE_HINT = "\n\nКогда деньги получены, получатель нажимает кнопку с этим переводом."
     SETTLED = "✅ {debtor} вернул(а) {creditor} {amount}"
     SETTLE_STALE = "Баланс уже изменился, откройте /balance заново"
-    SETTLE_NOT_YOURS = "Отметить перевод может только тот, кто платит, или тот, кто получает"
+    SETTLE_NOT_YOURS = "Отметить, что долг вернули, может только тот, кто получает деньги"
+    ONLY_ADMINS = "Это могут только администраторы чата"
 
     HISTORY_EMPTY = "Расходов пока нет. Добавьте первый: <code>/add 3000 такси</code>"
     HISTORY = "🧾 <b>Последние расходы</b>\n\n{lines}"
@@ -206,10 +207,11 @@ class En(Ru):
 
     BALANCE_EMPTY = "✅ All square, nobody owes anything"
     BALANCE = "📊 <b>Balance</b>\n\n{lines}\n\n💸 <b>To settle up:</b>\n{transfers}"
-    BALANCE_HINT = "\n\nOnce a debt is paid back, press the button with that transfer."
+    BALANCE_HINT = "\n\nOnce the money arrives, the receiver presses the button with that transfer."
     SETTLED = "✅ {debtor} paid back {creditor} {amount}"
     SETTLE_STALE = "The balance has changed, open /balance again"
-    SETTLE_NOT_YOURS = "Only the person paying or the person receiving can mark this transfer"
+    SETTLE_NOT_YOURS = "Only the person receiving the money can confirm the debt was paid back"
+    ONLY_ADMINS = "Only chat admins can do this"
 
     HISTORY_EMPTY = "No expenses yet. Add the first one: <code>/add 30 taxi</code>"
     HISTORY = "🧾 <b>Recent expenses</b>\n\n{lines}"
@@ -324,10 +326,11 @@ class Uk(Ru):
 
     BALANCE_EMPTY = "✅ Усі в розрахунку, ніхто нікому не винен"
     BALANCE = "📊 <b>Баланс</b>\n\n{lines}\n\n💸 <b>Щоб розрахуватися:</b>\n{transfers}"
-    BALANCE_HINT = "\n\nКоли борг повернули, натисніть кнопку з цим переказом."
+    BALANCE_HINT = "\n\nКоли гроші отримано, отримувач натискає кнопку з цим переказом."
     SETTLED = "✅ {debtor} повернув(ла) {creditor} {amount}"
     SETTLE_STALE = "Баланс уже змінився, відкрийте /balance знову"
-    SETTLE_NOT_YOURS = "Позначити переказ може лише той, хто платить, або той, хто отримує"
+    SETTLE_NOT_YOURS = "Позначити, що борг повернули, може лише той, хто отримує гроші"
+    ONLY_ADMINS = "Це можуть лише адміністратори чату"
 
     HISTORY_EMPTY = "Витрат поки немає. Додайте першу: <code>/add 300 таксі</code>"
     HISTORY = "🧾 <b>Останні витрати</b>\n\n{lines}"
@@ -443,10 +446,11 @@ class Pl(Ru):
 
     BALANCE_EMPTY = "✅ Wszyscy są rozliczeni, nikt nikomu nic nie wisi"
     BALANCE = "📊 <b>Bilans</b>\n\n{lines}\n\n💸 <b>Aby się rozliczyć:</b>\n{transfers}"
-    BALANCE_HINT = "\n\nGdy dług zostanie oddany, naciśnij przycisk z tym przelewem."
+    BALANCE_HINT = "\n\nGdy pieniądze dotrą, odbiorca naciska przycisk z tym przelewem."
     SETTLED = "✅ {debtor} oddał(a) {creditor} {amount}"
     SETTLE_STALE = "Bilans się zmienił, otwórz /balance ponownie"
-    SETTLE_NOT_YOURS = "Przelew może oznaczyć tylko osoba, która płaci, albo ta, która dostaje"
+    SETTLE_NOT_YOURS = "Potwierdzić zwrot długu może tylko osoba, która dostaje pieniądze"
+    ONLY_ADMINS = "Mogą to zrobić tylko administratorzy czatu"
 
     HISTORY_EMPTY = "Nie ma jeszcze wydatków. Dodaj pierwszy: <code>/add 50 taxi</code>"
     HISTORY = "🧾 <b>Ostatnie wydatki</b>\n\n{lines}"

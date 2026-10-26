@@ -37,6 +37,15 @@ class Chat(Base):
     pro_charge_id: Mapped[str | None] = mapped_column(String(512))
 
 
+class AiUsage(Base):
+    """AI checks made by the whole bot per day: a global cost ceiling."""
+
+    __tablename__ = "ai_usage"
+
+    day: Mapped[date] = mapped_column(primary_key=True)
+    checks: Mapped[int] = mapped_column(default=0)
+
+
 class Spammer(Base):
     """Shared across chats: people caught spamming anywhere. Pro chats check them harder."""
 

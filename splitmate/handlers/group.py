@@ -1,5 +1,6 @@
 """Group chats: participants, expenses, custom shares, balance and settling up."""
 
+import re
 import time
 from contextlib import suppress
 from html import escape
@@ -12,6 +13,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, ChatMemberUpdated, ForceReply, Message, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shared.admins import is_admin
 from shared.formatting import user_link
 from shared.i18n import CHOOSE_LANGUAGE, GROUP_CHATS, SetLang, lang_keyboard
 from splitmate import keyboards as kb
@@ -21,7 +23,8 @@ from splitmate.money import ShareError, fmt_money, parse_amount, settle_up
 from splitmate.texts import TEXTS, Ru, name, with_description
 
 INLINE_PREFIX = "💸 "  # messages sent through the bot's inline mode start with this
-CURRENCY_MAX_LENGTH = 8  # matches the chats.currency column
+# Up to 8 (the chats.currency column) letters, digits or currency signs, no markup
+CURRENCY_RE = re.compile(r"[^\s<>&\"']{1,8}")
 
 router = Router(name="group")
 router.message.filter(F.chat.type.in_(GROUP_CHATS))
@@ -70,12 +73,20 @@ async def help_cmd(message: Message, bot: Bot, t: Ru) -> None:
 
 
 @router.message(Command("language"))
-async def language_cmd(message: Message) -> None:
+async def language_cmd(message: Message, bot: Bot, t: Ru) -> None:
+    if not await is_admin(bot, message.chat.id, message.from_user.id):
+        await message.reply(t.ONLY_ADMINS)
+        return
     await message.answer(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
 
 
 @router.callback_query(SetLang.filter())
-async def set_language(cb: CallbackQuery, callback_data: SetLang, session: AsyncSession) -> None:
+async def set_language(
+    cb: CallbackQuery, callback_data: SetLang, session: AsyncSession, bot: Bot, t: Ru
+) -> None:
+    if not await is_admin(bot, cb.message.chat.id, cb.from_user.id):
+        await cb.answer(t.ONLY_ADMINS, show_alert=True)
+        return
     t = TEXTS.get(callback_data.code)
     if t is None:
         await cb.answer()
@@ -176,6 +187,11 @@ async def inline_expense(message: Message, session: AsyncSession, bot: Bot, t: R
         await record_expense(message, session, t, message.from_user, *parsed)
 
 
+async def is_chat_member(session: AsyncSession, expense: Expense, user_id: int) -> bool:
+    """User ids in callback data come from the client: accept only real participants."""
+    return user_id in {m.user_id for m in await repo.members(session, expense.chat_id)}
+
+
 async def load_own_expense(cb: CallbackQuery, session: AsyncSession, t: Ru, expense_id: int):
     expense = await repo.get_expense(session, expense_id)
     if expense is None or expense.is_deleted or expense.chat_id != cb.message.chat.id:
@@ -218,7 +234,7 @@ async def toggle_person(
     cb: CallbackQuery, callback_data: kb.Toggle, session: AsyncSession, t: Ru
 ) -> None:
     expense = await load_own_expense(cb, session, t, callback_data.expense)
-    if expense is None:
+    if expense is None or not await is_chat_member(session, expense, callback_data.user):
         return
     selected = {s.user_id for s in expense.shares} ^ {callback_data.user}
     if not selected:
@@ -333,7 +349,7 @@ async def pick_share(
     t: Ru,
 ) -> None:
     expense = await load_own_expense(cb, session, t, callback_data.expense)
-    if expense is None:
+    if expense is None or callback_data.user not in {s.user_id for s in expense.shares}:
         return
     chat = await repo.ensure_chat(session, expense.chat_id, None)
     names = await repo.names(session, expense.chat_id)
@@ -459,7 +475,7 @@ async def balance(message: Message, session: AsyncSession, t: Ru) -> None:
 
 @router.callback_query(kb.Settle.filter())
 async def settle(cb: CallbackQuery, callback_data: kb.Settle, session: AsyncSession, t: Ru) -> None:
-    if cb.from_user.id not in (callback_data.debtor, callback_data.creditor):
+    if cb.from_user.id != callback_data.creditor:
         await cb.answer(t.SETTLE_NOT_YOURS, show_alert=True)
         return
     chat = await repo.ensure_chat(session, cb.message.chat.id, cb.message.chat.title)
@@ -486,12 +502,18 @@ async def settle(cb: CallbackQuery, callback_data: kb.Settle, session: AsyncSess
 
 
 @router.message(Command("currency"))
-async def currency(message: Message, command: CommandObject, session: AsyncSession, t: Ru) -> None:
+async def currency(
+    message: Message, command: CommandObject, session: AsyncSession, bot: Bot, t: Ru
+) -> None:
+    if not await is_admin(bot, message.chat.id, message.from_user.id):
+        await message.reply(t.ONLY_ADMINS)
+        return
     value = (command.args or "").strip()
     if not value:
         await message.answer(t.CHOOSE_CURRENCY, reply_markup=kb.currencies())
         return
-    if len(value) > CURRENCY_MAX_LENGTH:
+    # The currency goes into every HTML message: letters and symbols only, no markup
+    if not CURRENCY_RE.fullmatch(value):
         await message.reply(t.CURRENCY_USAGE)
         return
     chat = await repo.ensure_chat(session, message.chat.id, message.chat.title)
@@ -501,8 +523,11 @@ async def currency(message: Message, command: CommandObject, session: AsyncSessi
 
 @router.callback_query(kb.SetCurrency.filter())
 async def currency_button(
-    cb: CallbackQuery, callback_data: kb.SetCurrency, session: AsyncSession, t: Ru
+    cb: CallbackQuery, callback_data: kb.SetCurrency, session: AsyncSession, bot: Bot, t: Ru
 ) -> None:
+    if not await is_admin(bot, cb.message.chat.id, cb.from_user.id):
+        await cb.answer(t.ONLY_ADMINS, show_alert=True)
+        return
     if callback_data.symbol not in {symbol for symbol, _ in kb.POPULAR_CURRENCIES}:
         await cb.answer()
         return

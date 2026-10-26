@@ -2,6 +2,7 @@
 
 import logging
 from datetime import UTC, datetime, timedelta
+from html import escape
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
@@ -10,10 +11,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chatguard import repo
-from chatguard.admins import is_admin
 from chatguard.config import Plans
 from chatguard.models import Chat
 from chatguard.texts import TEXTS, Ru
+from shared.admins import is_admin
 from shared.formatting import user_link
 from shared.notify import safe_send
 
@@ -111,7 +112,7 @@ async def successful_payment(message: Message, session: AsyncSession, bot: Bot, 
         # Automatic monthly renewal: tell the group, the payer already gets a Telegram receipt
         await safe_send(bot, chat.id, group_t.PRO_RENEWED.format(until=fmt_date(until)))
         return
-    await message.answer(t.PRO_THANKS.format(chat=chat.title, until=fmt_date(until)))
+    await message.answer(t.PRO_THANKS.format(chat=escape(chat.title), until=fmt_date(until)))
     await safe_send(
         bot,
         chat.id,

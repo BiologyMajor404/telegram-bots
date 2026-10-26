@@ -1,27 +1,24 @@
-"""Group chats: the spam guard itself, reports with Restore, admin settings."""
+"""Group chats: welcome, admin settings, Pro offer, language and restoring people.
+The spam check itself lives in handlers/guard.py and runs before these handlers."""
 
 import logging
-import time
-from contextlib import suppress
 from datetime import UTC, datetime
 from html import escape
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, CommandObject
-from aiogram.types import CallbackQuery, ChatMemberUpdated, ChatPermissions, Message
+from aiogram.types import CallbackQuery, ChatMemberUpdated, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chatguard import keyboards as kb
 from chatguard import repo
-from chatguard.admins import is_admin
 from chatguard.ai import Classifier
 from chatguard.config import Plans
-from chatguard.decide import decide
 from chatguard.handlers.payments import fmt_date, pro_offer
 from chatguard.models import Action, Chat
-from chatguard.rules import check
 from chatguard.texts import TEXTS, Ru
+from shared.admins import is_admin
 from shared.formatting import user_link
 from shared.i18n import CHOOSE_LANGUAGE, GROUP_CHATS, SetLang, lang_keyboard
 
@@ -31,21 +28,6 @@ router = Router(name="group")
 router.message.filter(F.chat.type.in_(GROUP_CHATS))
 router.callback_query.filter(F.message.chat.type.in_(GROUP_CHATS))
 router.my_chat_member.filter(F.chat.type.in_(GROUP_CHATS))
-
-NO_RIGHTS_NOTICE_SEC = 3600  # remind about missing admin rights at most once an hour
-_no_rights_noticed: dict[int, float] = {}
-NO_PERMISSIONS = ChatPermissions(
-    can_send_messages=False,
-    can_send_audios=False,
-    can_send_documents=False,
-    can_send_photos=False,
-    can_send_videos=False,
-    can_send_video_notes=False,
-    can_send_voice_notes=False,
-    can_send_polls=False,
-    can_send_other_messages=False,
-    can_add_web_page_previews=False,
-)
 
 
 @router.my_chat_member(ChatMemberUpdatedFilter(JOIN_TRANSITION))
@@ -216,118 +198,3 @@ async def restore(
         )
     )
     await cb.answer()
-
-
-# --- The guard itself: every other message in the group ---
-
-
-def message_signals(message: Message) -> dict:
-    entities = (message.entities or []) + (message.caption_entities or [])
-    origin = message.forward_origin
-    return {
-        "forwarded_from_channel": origin is not None and origin.type == "channel",
-        "has_buttons": message.reply_markup is not None,
-        "has_link_entities": any(e.type in ("url", "text_link") for e in entities),
-    }
-
-
-async def notify_no_rights(bot: Bot, chat_id: int, t: Ru) -> None:
-    now = time.monotonic()
-    if now - _no_rights_noticed.get(chat_id, -NO_RIGHTS_NOTICE_SEC) < NO_RIGHTS_NOTICE_SEC:
-        return
-    _no_rights_noticed[chat_id] = now
-    with suppress(TelegramBadRequest, TelegramForbiddenError):
-        await bot.send_message(chat_id, t.NEED_RIGHTS)
-
-
-async def punish(bot: Bot, chat: Chat, user_id: int) -> None:
-    try:
-        if chat.action == Action.MUTE:
-            await bot.restrict_chat_member(chat.id, user_id, permissions=NO_PERMISSIONS)
-        elif chat.action == Action.BAN:
-            await bot.ban_chat_member(chat.id, user_id)
-    except (TelegramBadRequest, TelegramForbiddenError) as e:
-        log.warning("Can't punish %s in %s: %s", user_id, chat.id, e)
-
-
-@router.message()
-async def guard(
-    message: Message,
-    session: AsyncSession,
-    bot: Bot,
-    t: Ru,
-    classifier: Classifier | None,
-    plans: Plans,
-) -> None:
-    user = message.from_user
-    text = message.text or message.caption or ""
-    # Channels and anonymous admins post as sender_chat; bots and service messages are skipped
-    if user is None or user.is_bot or message.sender_chat is not None or not text:
-        return
-    chat = await repo.ensure_chat(session, message.chat.id, message.chat.title)
-    if not chat.enabled:
-        return
-    member = await repo.get_member(session, chat.id, user.id)
-    if not repo.needs_check(member):
-        return
-    if await is_admin(bot, chat.id, user.id):
-        member.trusted = True
-        await session.commit()
-        return
-
-    now = datetime.now(UTC)
-    today = now.date()
-    pro = repo.is_pro(chat, now)
-    known = pro and await repo.is_known_spammer(session, user.id)
-    rules = check(text, **message_signals(message), known_spammer=known)
-    ai_allowed = repo.ai_budget_left(chat, today, repo.ai_limit(chat, now, plans))
-    decision = await decide(text, rules, chat.lang, classifier, ai_allowed, allow_opus=pro)
-    if decision.source in ("haiku", "opus"):
-        repo.spend_ai_check(chat, today)
-    chat.checked += 1
-
-    if not decision.is_spam:
-        member.clean_messages += 1
-        await session.commit()
-        return
-
-    try:
-        await message.delete()
-    except (TelegramBadRequest, TelegramForbiddenError):
-        await session.commit()
-        await notify_no_rights(bot, chat.id, t)
-        return
-    await punish(bot, chat, user.id)
-    chat.caught += 1
-    await repo.record_spammer(session, user.id, now)
-
-    if decision.source == "rules":
-        signals = ", ".join(t.SIGNALS.get(r, r) for r in decision.rules.reasons)
-        reason, source = t.REASON_RULES.format(signals=signals), t.SOURCE_RULES
-    else:
-        reason, source = decision.reason, f"{t.SOURCE_AI} {decision.source.capitalize()}"
-    incident = await repo.add_incident(
-        session,
-        chat_id=chat.id,
-        user_id=user.id,
-        user_name=user.full_name[:128],
-        text=text[:4000],
-        source=decision.source,
-        reason=reason[:500],
-        action=chat.action,
-    )
-    punishment = {
-        Action.DELETE: t.PUNISH_DELETE,
-        Action.MUTE: t.PUNISH_MUTE,
-        Action.BAN: t.PUNISH_BAN,
-    }[chat.action]
-    await bot.send_message(
-        chat.id,
-        t.REPORT.format(
-            user=user_link(user.id, user.full_name),
-            punishment=punishment,
-            source=source,
-            reason=escape(reason),
-        ),
-        reply_markup=kb.restore(t, incident.id),
-    )

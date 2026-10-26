@@ -14,6 +14,7 @@ class Plans:
     free_limit: int
     pro_limit: int
     pro_price_stars: int
+    global_limit: int  # AI checks per day for the whole bot
 
 
 class ChatGuardSettings(CommonSettings):
@@ -25,6 +26,8 @@ class ChatGuardSettings(CommonSettings):
     ai_limit_free: int = Field(50, validation_alias="CHATGUARD_AI_LIMIT_FREE")
     ai_limit_pro: int = Field(300, validation_alias="CHATGUARD_AI_LIMIT_PRO")
     pro_price_stars: int = Field(250, validation_alias="CHATGUARD_PRO_PRICE_STARS")
+    # Ceiling for all chats together, so many chats (or many fake ones) can't run up the bill
+    ai_limit_global: int = Field(1500, validation_alias="CHATGUARD_AI_LIMIT_GLOBAL")
     # Shown in /paysupport, e.g. @your_username; empty = no contact line
     support_contact: str = Field("", validation_alias="CHATGUARD_SUPPORT_CONTACT")
 
@@ -37,4 +40,6 @@ class ChatGuardSettings(CommonSettings):
 
     @property
     def plans(self) -> Plans:
-        return Plans(self.ai_limit_free, self.ai_limit_pro, self.pro_price_stars)
+        return Plans(
+            self.ai_limit_free, self.ai_limit_pro, self.pro_price_stars, self.ai_limit_global
+        )
