@@ -35,6 +35,8 @@ class Chat(Base):
     pro_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pro_owner_id: Mapped[int | None] = mapped_column(BigInteger)
     pro_charge_id: Mapped[str | None] = mapped_column(String(512))
+    # A group that became a supergroup gets a new id; its renewals still carry the old one
+    migrated_from: Mapped[int | None] = mapped_column(BigInteger, index=True, unique=True)
 
 
 class AiUsage(Base):
@@ -47,15 +49,22 @@ class AiUsage(Base):
 
 
 class Spammer(Base):
-    """Shared across chats: people caught spamming anywhere. Pro chats check them harder."""
+    """Shared across chats: people the AI caught spamming anywhere, one record per chat that
+    caught them, so a Restore clears only that chat's record. Pro chats check them harder."""
 
     __tablename__ = "spammers"
 
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    chat_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     caught: Mapped[int] = mapped_column(default=0)
     last_caught_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+def is_channel(sender_id: int) -> bool:
+    """`user_id` columns also hold channels that people post as: chat ids are negative."""
+    return sender_id < 0
 
 
 class Member(Base):

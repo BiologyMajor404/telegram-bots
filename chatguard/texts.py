@@ -59,9 +59,17 @@ class Ru:
         "Дайте мне права «Удаление сообщений» и «Блокировка пользователей»."
     )
     REPORT = "🛡 Удалено сообщение от {user}{punishment}\nПричина ({source}): {reason}"
+    REPORT_KEPT = (
+        "🛡 Спам от {user}{punishment}\nУдалить сообщение не получилось: оно старше 48 часов "
+        "или уже удалено.\nПричина ({source}): {reason}"
+    )
     PUNISH_DELETE = ""
     PUNISH_MUTE = ", теперь он в муте"
     PUNISH_BAN = ", он заблокирован"
+    PUNISH_CHANNEL = ", писать от имени этого канала здесь больше нельзя"
+    MUTE_FAILED = "; замутить не получилось"
+    BAN_FAILED = "; заблокировать не получилось"
+    NEED_BAN_RIGHT = ": дайте мне право «Блокировка пользователей»"
     SOURCE_RULES = "правила"
     SOURCE_AI = "ИИ"
     REASON_RULES = "подозрительные признаки: {signals}"
@@ -80,6 +88,9 @@ class Ru:
     }
     RESTORED = "↩️ {admin} вернул(а) {user}. Сообщение было таким:\n<blockquote>{text}</blockquote>"
     ALREADY_RESTORED = "Уже возвращено"
+    RESTORE_NEEDS_RIGHT = (
+        "Вернуть может владелец чата или админ с правом «Блокировка пользователей»"
+    )
 
     SETTINGS = (
         "⚙️ <b>Настройки ChatGuard AI</b>\n\n"
@@ -125,6 +136,7 @@ class Ru:
     )
     PRO_RENEWED = "⭐ Подписка Pro продлена до {until}."
     PRO_CHECK_FAILED = "Не получилось проверить оплату. Откройте /pro в чате и попробуйте снова."
+    PRO_ALREADY_PAID = "⭐ Pro для этого чата уже оплачен до {until}, вторая подписка не нужна."
     PAYSUPPORT = (
         "Вопросы по оплате ChatGuard AI Pro. Подписку можно отменить в любой момент: "
         "Настройки Telegram → Мои звёзды → подписки. Pro работает до конца "
@@ -184,9 +196,17 @@ class En(Ru):
         "Give me the “Delete messages” and “Ban users” rights."
     )
     REPORT = "🛡 Deleted a message from {user}{punishment}\nReason ({source}): {reason}"
+    REPORT_KEPT = (
+        "🛡 Spam from {user}{punishment}\nI couldn't delete the message: it's older than 48 "
+        "hours or already deleted.\nReason ({source}): {reason}"
+    )
     PUNISH_DELETE = ""
     PUNISH_MUTE = ", they are muted now"
     PUNISH_BAN = ", they are banned"
+    PUNISH_CHANNEL = ", posting as this channel is blocked here now"
+    MUTE_FAILED = "; couldn't mute them"
+    BAN_FAILED = "; couldn't ban them"
+    NEED_BAN_RIGHT = ": give me the “Ban users” right"
     SOURCE_RULES = "rules"
     SOURCE_AI = "AI"
     REASON_RULES = "suspicious signs: {signals}"
@@ -205,6 +225,7 @@ class En(Ru):
     }
     RESTORED = "↩️ {admin} restored {user}. The message was:\n<blockquote>{text}</blockquote>"
     ALREADY_RESTORED = "Already restored"
+    RESTORE_NEEDS_RIGHT = "Only the chat owner or an admin with the “Ban users” right can restore"
 
     SETTINGS = (
         "⚙️ <b>ChatGuard AI settings</b>\n\n"
@@ -249,6 +270,9 @@ class En(Ru):
     )
     PRO_RENEWED = "⭐ Pro subscription renewed until {until}."
     PRO_CHECK_FAILED = "Couldn't verify the payment. Open /pro in the chat and try again."
+    PRO_ALREADY_PAID = (
+        "⭐ Pro for this chat is already paid until {until}, a second subscription isn't needed."
+    )
     PAYSUPPORT = (
         "Payment questions for ChatGuard AI Pro. You can cancel the subscription any "
         "time: Telegram Settings → My Stars → subscriptions. Pro keeps working until "
@@ -311,9 +335,17 @@ class Uk(Ru):
         "Дайте мені права «Видалення повідомлень» і «Блокування користувачів»."
     )
     REPORT = "🛡 Видалено повідомлення від {user}{punishment}\nПричина ({source}): {reason}"
+    REPORT_KEPT = (
+        "🛡 Спам від {user}{punishment}\nВидалити повідомлення не вдалося: воно старше за 48 "
+        "годин або вже видалене.\nПричина ({source}): {reason}"
+    )
     PUNISH_DELETE = ""
     PUNISH_MUTE = ", тепер він у муті"
     PUNISH_BAN = ", його заблоковано"
+    PUNISH_CHANNEL = ", писати від імені цього каналу тут більше не можна"
+    MUTE_FAILED = "; замутити не вдалося"
+    BAN_FAILED = "; заблокувати не вдалося"
+    NEED_BAN_RIGHT = ": дайте мені право «Блокування користувачів»"
     SOURCE_RULES = "правила"
     SOURCE_AI = "ШІ"
     REASON_RULES = "підозрілі ознаки: {signals}"
@@ -334,6 +366,9 @@ class Uk(Ru):
         "↩️ {admin} повернув(ла) {user}. Повідомлення було таким:\n<blockquote>{text}</blockquote>"
     )
     ALREADY_RESTORED = "Уже повернуто"
+    RESTORE_NEEDS_RIGHT = (
+        "Повернути може власник чату або адмін із правом «Блокування користувачів»"
+    )
 
     SETTINGS = (
         "⚙️ <b>Налаштування ChatGuard AI</b>\n\n"
@@ -378,6 +413,7 @@ class Uk(Ru):
     )
     PRO_RENEWED = "⭐ Підписку Pro продовжено до {until}."
     PRO_CHECK_FAILED = "Не вдалося перевірити оплату. Відкрийте /pro у чаті й спробуйте ще раз."
+    PRO_ALREADY_PAID = "⭐ Pro для цього чату вже оплачено до {until}, друга підписка не потрібна."
     PAYSUPPORT = (
         "Питання щодо оплати ChatGuard AI Pro. Підписку можна скасувати будь-коли: "
         "Налаштування Telegram → Мої зірки → підписки. Pro працює до кінця "
@@ -440,9 +476,17 @@ class Pl(Ru):
         "Nadaj mi uprawnienia „Usuwanie wiadomości” i „Blokowanie użytkowników”."
     )
     REPORT = "🛡 Usunięto wiadomość od {user}{punishment}\nPowód ({source}): {reason}"
+    REPORT_KEPT = (
+        "🛡 Spam od {user}{punishment}\nNie udało się usunąć wiadomości: jest starsza niż 48 "
+        "godzin albo już usunięta.\nPowód ({source}): {reason}"
+    )
     PUNISH_DELETE = ""
     PUNISH_MUTE = ", jest teraz wyciszony"
     PUNISH_BAN = ", został zbanowany"
+    PUNISH_CHANNEL = ", pisanie w imieniu tego kanału jest tu teraz zablokowane"
+    MUTE_FAILED = "; nie udało się wyciszyć"
+    BAN_FAILED = "; nie udało się zbanować"
+    NEED_BAN_RIGHT = ": nadaj mi uprawnienie „Blokowanie użytkowników”"
     SOURCE_RULES = "reguły"
     SOURCE_AI = "AI"
     REASON_RULES = "podejrzane oznaki: {signals}"
@@ -463,6 +507,9 @@ class Pl(Ru):
         "↩️ {admin} przywrócił(a) {user}. Wiadomość brzmiała:\n<blockquote>{text}</blockquote>"
     )
     ALREADY_RESTORED = "Już przywrócono"
+    RESTORE_NEEDS_RIGHT = (
+        "Przywrócić może właściciel czatu lub admin z uprawnieniem „Blokowanie użytkowników”"
+    )
 
     SETTINGS = (
         "⚙️ <b>Ustawienia ChatGuard AI</b>\n\n"
@@ -509,6 +556,9 @@ class Pl(Ru):
     PRO_RENEWED = "⭐ Subskrypcja Pro przedłużona do {until}."
     PRO_CHECK_FAILED = (
         "Nie udało się zweryfikować płatności. Otwórz /pro w czacie i spróbuj ponownie."
+    )
+    PRO_ALREADY_PAID = (
+        "⭐ Pro dla tego czatu jest już opłacone do {until}, druga subskrypcja nie jest potrzebna."
     )
     PAYSUPPORT = (
         "Pytania o płatność za ChatGuard AI Pro. Subskrypcję można anulować w każdej "

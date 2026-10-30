@@ -1,6 +1,7 @@
 """Deposit in Telegram Stars: invoice, refund policy and refunds."""
 
 import logging
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -9,6 +10,8 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.types import LabeledPrice
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shared.formatting import user_link
+from slotbook.i18n import notify_admins
 from slotbook.models import Booking
 from slotbook.texts import Ru
 
@@ -20,6 +23,9 @@ HOLD_TIME = timedelta(minutes=15)
 # Cancelling earlier than this before the visit returns the deposit
 FREE_CANCEL_BEFORE = timedelta(hours=24)
 PAYLOAD_PREFIX = "booking:"
+# Telegram's error for a payment that was already given back (e.g. by an earlier try whose
+# answer got lost): the money is back, so it counts as done
+ALREADY_REFUNDED = "CHARGE_ALREADY_REFUNDED"
 
 
 def invoice_payload(booking_id: int) -> str:
@@ -58,14 +64,40 @@ async def send_invoice(bot: Bot, booking: Booking, tz: ZoneInfo, t: Ru) -> None:
     )
 
 
-async def refund(bot: Bot, session: AsyncSession, booking: Booking) -> bool:
+async def refund_charge(bot: Bot, user_id: int, charge_id: str) -> bool:
+    """Give one payment back; False (and logged) if Telegram refuses."""
     try:
-        await bot.refund_star_payment(
-            user_id=booking.user_id, telegram_payment_charge_id=booking.payment_charge_id
-        )
+        await bot.refund_star_payment(user_id=user_id, telegram_payment_charge_id=charge_id)
     except TelegramAPIError as e:
-        log.error("Refund for booking %s failed: %s", booking.id, e)
+        if ALREADY_REFUNDED in str(e):
+            return True
+        log.error("Refund of payment %s to user %s failed: %s", charge_id, user_id, e)
+        return False
+    return True
+
+
+async def refund(bot: Bot, session: AsyncSession, booking: Booking) -> bool:
+    """Give the booking's payment back. The caller marks it refund_owed first, so if Telegram
+    refuses, it stays owed and the reminder loop tries again."""
+    if not await refund_charge(bot, booking.user_id, booking.payment_charge_id):
         return False
     booking.refunded = True
+    booking.refund_owed = False
     await session.commit()
     return True
+
+
+async def alert_refund_failed(
+    bot: Bot, session: AsyncSession, booking: Booking, admin_ids: Iterable[int], tz: ZoneInfo
+) -> None:
+    """Tell the admins once that a refund failed; the reminder loop keeps retrying it."""
+    await notify_admins(
+        bot,
+        session,
+        admin_ids,
+        lambda at: at.ADMIN_REFUND_FAILED.format(
+            stars=booking.deposit_stars,
+            client=user_link(booking.user_id, booking.user_name),
+            booking=at.fmt_booking(booking, tz),
+        ),
+    )

@@ -2,13 +2,17 @@
 
 from datetime import datetime, time
 
-from sqlalchemy import func, select, text
+from sqlalchemy import ColumnElement, select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from slotbook.models import Booking, BookingStatus, Service, Setting, UserPrefs, WorkDay
 from slotbook.texts import TEXTS, Ru
 
 DEPOSIT_KEY = "deposit_stars"
+# Integer primary keys are 32-bit: a bigger id from forged callback data or an invoice payload
+# would make the driver raise instead of finding nothing
+MAX_ID = 2**31 - 1
 
 DEMO_SERVICES = [("Стрижка", 60, 1500), ("Стрижка бороды", 30, 800), ("Стрижка + борода", 90, 2000)]
 DEMO_HOURS = {0: (10, 20), 1: (10, 20), 2: (10, 20), 3: (10, 20), 4: (10, 20), 5: (11, 17)}
@@ -40,6 +44,8 @@ async def active_services(session: AsyncSession) -> list[Service]:
 
 
 async def get_service(session: AsyncSession, service_id: int) -> Service | None:
+    if not 0 < service_id <= MAX_ID:
+        return None
     return await session.get(Service, service_id)
 
 
@@ -49,7 +55,7 @@ async def add_service(session: AsyncSession, name: str, duration_min: int, price
 
 
 async def hide_service(session: AsyncSession, service_id: int) -> None:
-    service = await session.get(Service, service_id)
+    service = await get_service(session, service_id)
     if service:
         service.is_active = False
         await session.commit()
@@ -65,6 +71,15 @@ async def get_lang(session: AsyncSession, user_id: int) -> str | None:
 
 async def set_lang(session: AsyncSession, user_id: int, lang: str) -> None:
     await session.merge(UserPrefs(id=user_id, lang=lang))
+    await session.commit()
+
+
+async def save_new_lang(session: AsyncSession, user_id: int, lang: str) -> None:
+    """Store a new user's language. Their first two updates may arrive at once: the second
+    insert is skipped instead of failing on the primary key."""
+    await session.execute(
+        pg_insert(UserPrefs).values(id=user_id, lang=lang).on_conflict_do_nothing()
+    )
     await session.commit()
 
 
@@ -117,7 +132,7 @@ async def busy_intervals(
     rows = await session.execute(
         select(Booking.starts_at, Booking.ends_at).where(
             # A booking waiting for the deposit holds its slot too
-            Booking.status.in_([BookingStatus.ACTIVE, BookingStatus.PENDING]),
+            Booking.status.in_(BookingStatus.OPEN),
             Booking.starts_at < end,
             Booking.ends_at > start,
         )
@@ -126,14 +141,17 @@ async def busy_intervals(
 
 
 async def get_booking(session: AsyncSession, booking_id: int) -> Booking | None:
+    if not 0 < booking_id <= MAX_ID:
+        return None
     return await session.get(Booking, booking_id)
 
 
 async def bookings_between(session: AsyncSession, start: datetime, end: datetime) -> list[Booking]:
+    """Confirmed bookings and holds waiting for the deposit, for the master's list."""
     result = await session.scalars(
         select(Booking)
         .where(
-            Booking.status == BookingStatus.ACTIVE,
+            Booking.status.in_(BookingStatus.OPEN),
             Booking.starts_at >= start,
             Booking.starts_at < end,
         )
@@ -145,11 +163,12 @@ async def bookings_between(session: AsyncSession, start: datetime, end: datetime
 async def upcoming_user_bookings(
     session: AsyncSession, user_id: int, now: datetime
 ) -> list[Booking]:
+    """The client's upcoming bookings: confirmed ones and holds waiting for the deposit."""
     result = await session.scalars(
         select(Booking)
         .where(
             Booking.user_id == user_id,
-            Booking.status == BookingStatus.ACTIVE,
+            Booking.status.in_(BookingStatus.OPEN),
             Booking.starts_at > now,
         )
         .order_by(Booking.starts_at)
@@ -157,38 +176,87 @@ async def upcoming_user_bookings(
     return list(result)
 
 
-async def count_open_bookings(session: AsyncSession, user_id: int, now: datetime) -> int:
-    return await session.scalar(
-        select(func.count())
-        .select_from(Booking)
-        .where(
-            Booking.user_id == user_id,
-            Booking.status.in_([BookingStatus.ACTIVE, BookingStatus.PENDING]),
-            Booking.starts_at > now,
-        )
+# Status changes below are single conditional UPDATEs: a payment, the expiry job and button
+# presses run concurrently, and only one of them may move a booking on from a given status.
+
+
+async def _change(
+    session: AsyncSession, booking: Booking, *where: ColumnElement[bool], **values: object
+) -> bool:
+    """UPDATE the booking if it still matches `where`; reload it either way, so the caller
+    sees what actually happened. False if another update got there first."""
+    result = await session.execute(
+        update(Booking)
+        .where(Booking.id == booking.id, *where)
+        .values(**values)
+        .returning(Booking.id)
+        .execution_options(synchronize_session=False)
+    )
+    await session.commit()
+    await session.refresh(booking)
+    return result.first() is not None
+
+
+async def cancel_booking(session: AsyncSession, booking: Booking, refund: bool) -> bool:
+    """Cancel a booking that is still in the status the caller saw. With `refund` the deposit
+    is marked as owed back in the same UPDATE, so it can't be forgotten if the refund fails."""
+    return await _change(
+        session,
+        booking,
+        Booking.status == booking.status,
+        status=BookingStatus.CANCELLED,
+        refund_owed=refund,
     )
 
 
-async def cancel_booking(session: AsyncSession, booking: Booking) -> None:
-    booking.status = BookingStatus.CANCELLED
-    await session.commit()
+async def activate_paid(session: AsyncSession, booking: Booking, charge_id: str) -> bool:
+    """Confirm a held booking once its deposit is paid. False if it no longer waits for
+    payment: the hold was released, or another payment was already counted."""
+    return await _change(
+        session,
+        booking,
+        Booking.status == BookingStatus.PENDING,
+        status=BookingStatus.ACTIVE,
+        payment_charge_id=charge_id,
+    )
 
 
-async def mark_paid(session: AsyncSession, booking: Booking, charge_id: str) -> None:
-    booking.status = BookingStatus.ACTIVE
-    booking.payment_charge_id = charge_id
-    await session.commit()
+async def record_late_payment(session: AsyncSession, booking: Booking, charge_id: str) -> bool:
+    """A payment that came after the hold was released: keep its charge id on the booking and
+    mark it as owed back. False if the booking already has a payment."""
+    return await _change(
+        session,
+        booking,
+        Booking.payment_charge_id.is_(None),
+        payment_charge_id=charge_id,
+        refund_owed=True,
+    )
 
 
 async def expire_unpaid(session: AsyncSession, created_before: datetime) -> list[Booking]:
-    """Release slots held for deposits that weren't paid in time."""
-    result = await session.scalars(
-        select(Booking).where(
-            Booking.status == BookingStatus.PENDING, Booking.created_at < created_before
+    """Release slots held for deposits that weren't paid in time. Only bookings still
+    PENDING at the moment of the UPDATE expire, so one paid at the same time stays active."""
+    expired_ids = list(
+        await session.scalars(
+            update(Booking)
+            .where(Booking.status == BookingStatus.PENDING, Booking.created_at < created_before)
+            .values(status=BookingStatus.EXPIRED)
+            .returning(Booking.id)
+            .execution_options(synchronize_session=False)
         )
     )
-    expired = list(result)
-    for booking in expired:
-        booking.status = BookingStatus.EXPIRED
     await session.commit()
-    return expired
+    if not expired_ids:
+        return []
+    return list(
+        await session.scalars(
+            select(Booking)
+            .where(Booking.id.in_(expired_ids))
+            .execution_options(populate_existing=True)
+        )
+    )
+
+
+async def owed_refunds(session: AsyncSession) -> list[Booking]:
+    """Bookings whose payment must go back but the refund hasn't gone through yet."""
+    return list(await session.scalars(select(Booking).where(Booking.refund_owed)))

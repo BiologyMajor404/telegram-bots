@@ -25,39 +25,40 @@ MENTION_RE = re.compile(r"(?<![\w@])@[A-Za-z][\w]{4,}")
 PHONE_RE = re.compile(r"(?:\+?\d[\s\-()]?){10,}")
 EMOJI_RE = re.compile("[\U0001f300-\U0001faff☀-➿]")
 
-# Lower-case stems in uk / ru / pl / en. Matching is by substring, so stems catch word forms.
+# Lower-case stems and phrases in uk / ru / pl / en, as regexes. One that starts with a letter
+# matches only at the start of a word, so a stem catches word forms ("крипт": "криптовалюта")
+# but not a longer word around it ("скрипт"); a tail like `\b` or `(?!...)` keeps out the
+# unrelated words that start the same way ("доходит" = reaches, "investigation").
 MONEY_WORDS = [
     # earnings / jobs
     "заработ",
     "заробі",
-    "заробіт",
-    "доход",
-    "дохід",
+    r"доход(?![ия])",  # not "доходит", "доходя"
+    r"дохід(?!л)",  # not "дохідливий" (clear)
     "пассивн",
     "пасивн",
-    "удалённ",
-    "удаленн",
-    "віддален",
+    r"удал[её]нн\w* работ",  # not a remote server
+    r"удал[её]нк",
+    r"віддален\w* робот",
     "подработ",
     "підробіт",
     "zarob",
     "dochód",
     "praca zdalna",
-    "earn",
+    r"earn(?:s|ed|ing|ings)?\b",  # not "earnest"
     "income",
     "passive",
     "remote job",
     "work from home",
     # money amounts / profit
-    "$ в день",
+    r"\$ в день",
     "в день от",
     "на день від",
-    "за день",
     "per day",
     "dziennie",
     "profit",
-    "прибыл",
-    "прибут",
+    "прибыль",  # not "прибыл" (arrived)
+    r"прибут(?:ок|к)",  # not "прибуття" (arrival)
     "zysk",
     # crypto / investing
     "крипт",
@@ -69,7 +70,7 @@ MONEY_WORDS = [
     "usdt",
     "инвест",
     "інвест",
-    "invest",
+    r"invest(?!igat)",  # not "investigation"
     "трейд",
     "trading",
     "airdrop",
@@ -91,7 +92,7 @@ DM_WORDS = [
     "в лс",
     "пиши в особисті",
     "в особисті",
-    "в приват",
+    r"в приват\b",  # not "в ПриватБанк", "в приватном порядке"
     "write me",
     "dm me",
     "text me",
@@ -100,6 +101,14 @@ DM_WORDS = [
     "napisz prywatnie",
     "pisz pw",
 ]
+
+
+def _patterns(words: list[str]) -> list[re.Pattern[str]]:
+    return [re.compile(rf"(?<!\w){w}" if w[0].isalpha() else w) for w in words]
+
+
+MONEY_PATTERNS = _patterns(MONEY_WORDS)
+DM_PATTERNS = _patterns(DM_WORDS)
 
 
 @dataclass
@@ -141,10 +150,10 @@ def check(
     if MENTION_RE.search(text):
         v.add(1, "mention")
 
-    money_hits = sum(1 for w in MONEY_WORDS if w in low)
+    money_hits = sum(1 for p in MONEY_PATTERNS if p.search(low))
     if money_hits:
         v.add(min(money_hits, 3), "money")
-    if any(w in low for w in DM_WORDS):
+    if any(p.search(low) for p in DM_PATTERNS):
         v.add(2, "dm")
 
     if forwarded_from_channel:

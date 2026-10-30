@@ -1,11 +1,14 @@
 """The master's panel: bookings, services, working hours, prepayment."""
 
+import math
 import re
 from datetime import datetime, time, timedelta
 from html import escape
 from zoneinfo import ZoneInfo
 
 from aiogram import Bot, F, Router
+from aiogram.dispatcher.event.bases import SkipHandler
+from aiogram.enums import ChatType
 from aiogram.filters import Command, Filter, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -16,8 +19,8 @@ from shared.formatting import user_link
 from shared.notify import safe_send
 from slotbook import keyboards as kb
 from slotbook import payments, repo, scheduling
-from slotbook.models import BookingStatus, WorkDay
-from slotbook.texts import Ru
+from slotbook.models import Booking, BookingStatus, WorkDay
+from slotbook.texts import Ru, short
 
 
 class IsAdmin(Filter):
@@ -27,8 +30,12 @@ class IsAdmin(Filter):
 
 
 router = Router(name="admin")
-router.message.filter(IsAdmin())
-router.callback_query.filter(IsAdmin())
+# Private chats only: in a group everyone would see the panel and the clients' names
+router.message.filter(F.chat.type == ChatType.PRIVATE, IsAdmin())
+router.callback_query.filter(F.message.chat.type == ChatType.PRIVATE, IsAdmin())
+
+# What the input steps accept: typed text that isn't a command
+ANSWER = F.text & ~F.text.startswith("/")
 
 
 class AddService(StatesGroup):
@@ -46,6 +53,10 @@ class EditDeposit(StatesGroup):
 
 
 MAX_DEPOSIT_STARS = 10_000
+# Bookings per page of the master's list. With names cut to LIST_NAME_LEN a page stays far
+# below Telegram's 4096 characters, and every booking on it gets a cancel button
+PAGE_SIZE = 20
+LIST_NAME_LEN = 32
 
 
 HOURS_RE = re.compile(r"^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$")
@@ -87,6 +98,14 @@ async def admin_cmd(message: Message, state: FSMContext, t: Ru) -> None:
     await message.answer(t.ADMIN_MENU, reply_markup=kb.admin_menu(t))
 
 
+@router.message(StateFilter(AddService, EditHours, EditDeposit), F.text.startswith("/"))
+async def command_during_input(_message: Message, state: FSMContext) -> None:
+    """A command sent instead of the answer ends the step and then runs as usual, rather than
+    being saved as, say, a service called "/start"."""
+    await state.clear()
+    raise SkipHandler
+
+
 @router.callback_query(kb.Admin.filter(F.action == "menu"))
 async def admin_menu(cb: CallbackQuery, state: FSMContext, t: Ru) -> None:
     await state.clear()
@@ -97,33 +116,68 @@ async def admin_menu(cb: CallbackQuery, state: FSMContext, t: Ru) -> None:
 # --- Bookings ---
 
 
-@router.callback_query(kb.Admin.filter(F.action == "list"))
-async def list_bookings(
-    cb: CallbackQuery, callback_data: kb.Admin, session: AsyncSession, tz: ZoneInfo, t: Ru
-) -> None:
-    today = scheduling.now_utc().astimezone(tz).date()
-    start = datetime.combine(today, time(), tzinfo=tz)
-    items = await repo.bookings_between(session, start, start + timedelta(days=callback_data.id))
+def paginate(items: list[Booking], page: int) -> tuple[list[Booking], int, int]:
+    """The bookings on `page` (clamped to the pages there are), that page and the page count."""
+    pages = max(1, math.ceil(len(items) / PAGE_SIZE))
+    page = min(max(page, 0), pages - 1)
+    return items[page * PAGE_SIZE : (page + 1) * PAGE_SIZE], page, pages
 
-    if not items:
-        await cb.message.edit_text(t.ADMIN_NO_BOOKINGS, reply_markup=kb.admin_back(t))
-        await cb.answer()
-        return
 
+def bookings_text(t: Ru, items: list[Booking], tz: ZoneInfo, page: int, pages: int) -> str:
     lines, current_day = [], None
     for b in items:
         local = b.starts_at.astimezone(tz)
         if local.date() != current_day:
             current_day = local.date()
             lines.append(f"\n<b>{t.fmt_day(current_day)}</b>")
-        lines.append(
-            f"{local:%H:%M}–{b.ends_at.astimezone(tz):%H:%M} · {escape(b.service.name)} · "
-            f"{user_link(b.user_id, b.user_name)}"
+        line = (
+            f"{local:%H:%M}–{b.ends_at.astimezone(tz):%H:%M} · "
+            f"{escape(short(b.service.name, LIST_NAME_LEN))} · "
+            f"{user_link(b.user_id, short(b.user_name, LIST_NAME_LEN))}"
         )
+        if b.status == BookingStatus.PENDING:
+            line += f" · {t.HOLD_MARK}"
+        lines.append(line)
+    if pages > 1:
+        lines.append(f"\n{page + 1}/{pages}")
+    return "\n".join(lines).strip()
+
+
+async def show_bookings(
+    cb: CallbackQuery, session: AsyncSession, tz: ZoneInfo, t: Ru, days: int, page: int
+) -> None:
+    if not 1 <= days <= scheduling.BOOKING_HORIZON_DAYS:  # forged callback data
+        await cb.answer()
+        return
+    today = scheduling.now_utc().astimezone(tz).date()
+    start = datetime.combine(today, time(), tzinfo=tz)
+    items = await repo.bookings_between(session, start, start + timedelta(days=days))
+
+    if not items:
+        await cb.message.edit_text(t.ADMIN_NO_BOOKINGS, reply_markup=kb.admin_back(t))
+        await cb.answer()
+        return
+
+    items, page, pages = paginate(items, page)
     await cb.message.edit_text(
-        "\n".join(lines).strip(), reply_markup=kb.admin_bookings(t, items, tz)
+        bookings_text(t, items, tz, page, pages),
+        reply_markup=kb.admin_bookings(t, items, tz, days, page, pages),
     )
     await cb.answer()
+
+
+@router.callback_query(kb.Admin.filter(F.action == "list"))
+async def list_bookings(
+    cb: CallbackQuery, callback_data: kb.Admin, session: AsyncSession, tz: ZoneInfo, t: Ru
+) -> None:
+    await show_bookings(cb, session, tz, t, days=callback_data.id, page=0)
+
+
+@router.callback_query(kb.AdminPage.filter())
+async def list_page(
+    cb: CallbackQuery, callback_data: kb.AdminPage, session: AsyncSession, tz: ZoneInfo, t: Ru
+) -> None:
+    await show_bookings(cb, session, tz, t, callback_data.days, callback_data.page)
 
 
 @router.callback_query(kb.Admin.filter(F.action == "cancel"))
@@ -133,24 +187,35 @@ async def cancel_booking(
     session: AsyncSession,
     tz: ZoneInfo,
     bot: Bot,
+    admin_ids: set[int],
     t: Ru,
 ) -> None:
     booking = await repo.get_booking(session, callback_data.id)
-    if not booking or booking.status != BookingStatus.ACTIVE:
+    if not booking or booking.status not in BookingStatus.OPEN:
         await cb.answer(t.CANT_CANCEL, show_alert=True)
         return
     give_back = payments.refund_due(booking, scheduling.now_utc(), by_master=True)
-    await repo.cancel_booking(session, booking)
+    # Fails if the client cancelled, paid or the hold expired meanwhile
+    if not await repo.cancel_booking(session, booking, refund=give_back):
+        await cb.answer(t.CANT_CANCEL, show_alert=True)
+        return
     refunded = give_back and await payments.refund(bot, session, booking)
     client_t = await repo.texts_for(session, booking.user_id)
+    deposit = ""
+    if refunded:
+        deposit = client_t.DEPOSIT_RETURNED
+    elif give_back:
+        deposit = client_t.DEPOSIT_REFUND_PENDING
     await safe_send(
         bot,
         booking.user_id,
         client_t.CLIENT_CANCELLED_BY_ADMIN.format(booking=client_t.fmt_booking(booking, tz))
-        + (client_t.DEPOSIT_RETURNED if refunded else ""),
+        + deposit,
     )
     await cb.message.edit_text(t.ADMIN_CANCELLED, reply_markup=kb.admin_back(t))
     await cb.answer()
+    if give_back and not refunded:
+        await payments.alert_refund_failed(bot, session, booking, admin_ids, tz)
 
 
 # --- Services ---
@@ -186,14 +251,14 @@ async def add_service_start(cb: CallbackQuery, state: FSMContext, t: Ru) -> None
     await cb.answer()
 
 
-@router.message(AddService.name, F.text)
+@router.message(AddService.name, ANSWER)
 async def add_service_name(message: Message, state: FSMContext, t: Ru) -> None:
     await state.update_data(name=message.text.strip()[:64])
     await state.set_state(AddService.duration)
     await message.answer(t.ADMIN_ASK_DURATION)
 
 
-@router.message(AddService.duration, F.text)
+@router.message(AddService.duration, ANSWER)
 async def add_service_duration(message: Message, state: FSMContext, t: Ru) -> None:
     if not message.text.isdigit() or int(message.text) <= 0:
         await message.answer(t.ADMIN_BAD_NUMBER)
@@ -206,7 +271,7 @@ async def add_service_duration(message: Message, state: FSMContext, t: Ru) -> No
     await message.answer(t.ADMIN_ASK_PRICE)
 
 
-@router.message(AddService.price, F.text)
+@router.message(AddService.price, ANSWER)
 async def add_service_price(
     message: Message, state: FSMContext, session: AsyncSession, t: Ru
 ) -> None:
@@ -234,13 +299,16 @@ async def hours(cb: CallbackQuery, session: AsyncSession, t: Ru) -> None:
 async def hours_edit_start(
     cb: CallbackQuery, callback_data: kb.Admin, state: FSMContext, t: Ru
 ) -> None:
+    if not 0 <= callback_data.id < len(t.WEEKDAYS_FULL):  # forged callback data
+        await cb.answer()
+        return
     await state.set_state(EditHours.value)
     await state.update_data(weekday=callback_data.id)
     await cb.message.answer(t.ADMIN_ASK_HOURS.format(day=t.WEEKDAYS_FULL[callback_data.id]))
     await cb.answer()
 
 
-@router.message(EditHours.value, F.text)
+@router.message(EditHours.value, ANSWER)
 async def hours_edit_save(
     message: Message, state: FSMContext, session: AsyncSession, t: Ru
 ) -> None:
@@ -268,7 +336,7 @@ async def deposit_start(cb: CallbackQuery, state: FSMContext, session: AsyncSess
     await cb.answer()
 
 
-@router.message(EditDeposit.value, F.text)
+@router.message(EditDeposit.value, ANSWER)
 async def deposit_save(message: Message, state: FSMContext, session: AsyncSession, t: Ru) -> None:
     raw = message.text.strip()
     if not raw.isdigit() or int(raw) > MAX_DEPOSIT_STARS:

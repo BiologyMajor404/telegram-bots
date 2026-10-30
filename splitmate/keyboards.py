@@ -56,6 +56,7 @@ POPULAR_CURRENCIES = [
 class Settle(CallbackData, prefix="st"):
     debtor: int
     creditor: int
+    amount: int  # as shown on the button: confirming records exactly this
 
 
 def add_to_group(t: Ru, bot_username: str) -> InlineKeyboardMarkup:
@@ -115,7 +116,7 @@ def settle(transfers: list[Transfer], names: dict[int, str], currency: str) -> I
         b.button(
             text=f"✅ {names.get(debtor, '?')} → {names.get(creditor, '?')} "
             f"{fmt_money(amount, currency)}",
-            callback_data=Settle(debtor=debtor, creditor=creditor),
+            callback_data=Settle(debtor=debtor, creditor=creditor, amount=amount),
         )
     b.adjust(1)
     return b.as_markup()

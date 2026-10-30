@@ -4,6 +4,7 @@ import pytest
 
 from splitmate.handlers.inline import plain_amount
 from splitmate.money import (
+    MAX_AMOUNT,
     ShareError,
     fmt_money,
     net_balances,
@@ -24,18 +25,25 @@ A, B, C, D = 1, 2, 3, 4
         ("99.9 кофе", (9990, "кофе")),
         ("500", (50000, "")),
         ("  42   пицца на всех ", (4200, "пицца на всех")),
+        # Without separators, as inline mode writes them, up to MAX_AMOUNT
+        ("12345678 такси", (1234567800, "такси")),
+        ("100000000", (MAX_AMOUNT, "")),
+        ("100 000 000,00 x", (MAX_AMOUNT, "x")),
     ],
 )
 def test_parse_amount(text, expected):
     assert parse_amount(text) == expected
 
 
-@pytest.mark.parametrize("text", ["", "такси", "0 такси", "-5 такси", "1,234 x", "abc 100"])
+@pytest.mark.parametrize(
+    "text",
+    ["", "такси", "0 такси", "-5 такси", "1,234 x", "abc 100", "100000001", "1000000000 x"],
+)
 def test_parse_amount_rejects(text):
     assert parse_amount(text) is None
 
 
-@pytest.mark.parametrize("minor", [1, 50, 300000, 125050, 99999999])
+@pytest.mark.parametrize("minor", [1, 50, 300000, 125050, 99999999, 1234567800, MAX_AMOUNT])
 def test_inline_amount_roundtrip(minor):
     # The inline message must be parsed back to exactly the same amount
     assert parse_amount(f"{plain_amount(minor)} x") == (minor, "x")

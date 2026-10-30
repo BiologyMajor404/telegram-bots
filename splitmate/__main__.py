@@ -6,11 +6,11 @@ import logging
 from aiogram import Dispatcher
 from aiogram.types import BotCommand
 
-from shared.bot_setup import create_bot, on_error, set_commands
+from shared.bot_setup import create_bot, on_error, publish_profile, set_commands
 from shared.db import init_db
 from shared.i18n import LangMiddleware, set_profile_texts
 from shared.log_setup import setup_logging
-from shared.middlewares import DbSessionMiddleware
+from shared.middlewares import DbSessionMiddleware, StaleButtonMiddleware
 from shared.storage import make_storage
 from splitmate.config import SplitMateSettings
 from splitmate.handlers import group, inline, private
@@ -30,6 +30,7 @@ def group_commands(t: Ru) -> list[BotCommand]:
         BotCommand(command="balance", description=t.CMD_BALANCE),
         BotCommand(command="history", description=t.CMD_HISTORY),
         BotCommand(command="join", description=t.CMD_JOIN),
+        BotCommand(command="leave", description=t.CMD_LEAVE),
         BotCommand(command="members", description=t.CMD_MEMBERS),
         BotCommand(command="currency", description=t.CMD_CURRENCY),
         BotCommand(command="language", description=t.CMD_LANGUAGE),
@@ -47,15 +48,22 @@ async def main() -> None:
     dp = Dispatcher(storage=make_storage(settings.redis_url, prefix="splitmate"))
     dp.update.middleware(DbSessionMiddleware(session_factory))
     dp.update.middleware(LangMiddleware(resolve_lang, TEXTS))  # needs the DB session
+    dp.callback_query.outer_middleware(StaleButtonMiddleware())
     dp.errors.register(on_error)
     dp.include_routers(group.router, private.router, inline.router)
 
-    await set_commands(bot, TEXTS, private=private_commands, group=group_commands)
-    await set_profile_texts(bot, TEXTS)
+    # In the background: Telegram may rate-limit these, which must not stop the bot
+    profile = asyncio.create_task(
+        publish_profile(
+            lambda: set_commands(bot, TEXTS, private=private_commands, group=group_commands),
+            lambda: set_profile_texts(bot, TEXTS),
+        )
+    )
     log.info("SplitMates started")
     try:
         await dp.start_polling(bot)
     finally:
+        profile.cancel()
         await engine.dispose()
 
 

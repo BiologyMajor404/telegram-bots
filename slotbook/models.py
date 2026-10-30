@@ -55,6 +55,11 @@ class BookingStatus:
     ACTIVE = "active"
     CANCELLED = "cancelled"
     EXPIRED = "expired"  # deposit wasn't paid in time
+    OPEN = (PENDING, ACTIVE)  # these hold their slot
+
+
+# Booking.user_name length: a Telegram full name (first + last) can be one character longer
+USER_NAME_LEN = 128
 
 
 class Booking(Base):
@@ -62,7 +67,7 @@ class Booking(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, index=True)
-    user_name: Mapped[str] = mapped_column(String(128))
+    user_name: Mapped[str] = mapped_column(String(USER_NAME_LEN))
     username: Mapped[str | None] = mapped_column(String(64))
     service_id: Mapped[int] = mapped_column(ForeignKey("services.id"))
     service: Mapped[Service] = relationship(lazy="joined")
@@ -74,4 +79,7 @@ class Booking(Base):
     deposit_stars: Mapped[int] = mapped_column(default=0, server_default="0")
     payment_charge_id: Mapped[str | None] = mapped_column(String(512))
     refunded: Mapped[bool] = mapped_column(default=False, server_default="false")
+    # The payment must go back but Telegram hasn't confirmed it yet; the reminder loop retries.
+    # Never set for a late cancellation: that deposit is kept by design
+    refund_owed: Mapped[bool] = mapped_column(default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

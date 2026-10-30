@@ -13,7 +13,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, ChatMemberUpdated, ForceReply, Message, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.admins import is_admin
+from shared.admins import is_admin, sender_is_admin
 from shared.formatting import user_link
 from shared.i18n import CHOOSE_LANGUAGE, GROUP_CHATS, SetLang, lang_keyboard
 from splitmate import keyboards as kb
@@ -74,7 +74,7 @@ async def help_cmd(message: Message, bot: Bot, t: Ru) -> None:
 
 @router.message(Command("language"))
 async def language_cmd(message: Message, bot: Bot, t: Ru) -> None:
-    if not await is_admin(bot, message.chat.id, message.from_user.id):
+    if not await sender_is_admin(bot, message):
         await message.reply(t.ONLY_ADMINS)
         return
     await message.answer(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
@@ -100,9 +100,20 @@ async def set_language(
 # --- Participants ---
 
 
+async def from_a_person(message: Message, t: Ru) -> bool:
+    """Anonymous admins and channels post as a chat, all behind one placeholder account,
+    which can't pay or owe anything: they're asked to write as themselves."""
+    if message.sender_chat is None:
+        return True
+    await message.reply(t.POST_AS_YOURSELF)
+    return False
+
+
 @router.message(Command("join"))
 async def join_cmd(message: Message, session: AsyncSession, t: Ru) -> None:
-    if await repo.ensure_member(session, message.chat.id, message.from_user):
+    if not await from_a_person(message, t):
+        return
+    if await repo.ensure_member(session, message.chat.id, message.from_user, rejoin=True):
         await message.answer(t.JOINED.format(name=name(message.from_user.full_name)))
     else:
         await message.reply(t.ALREADY_JOINED)
@@ -110,18 +121,46 @@ async def join_cmd(message: Message, session: AsyncSession, t: Ru) -> None:
 
 @router.callback_query(kb.Join.filter())
 async def join_button(cb: CallbackQuery, session: AsyncSession, t: Ru) -> None:
-    if await repo.ensure_member(session, cb.message.chat.id, cb.from_user):
+    if await repo.ensure_member(session, cb.message.chat.id, cb.from_user, rejoin=True):
         await cb.message.answer(t.JOINED.format(name=name(cb.from_user.full_name)))
         await cb.answer()
     else:
         await cb.answer(t.ALREADY_JOINED)
 
 
+@router.message(Command("leave"))
+async def leave_cmd(message: Message, session: AsyncSession, t: Ru) -> None:
+    """New expenses stop including the person; what they paid and owe so far stays."""
+    if not await from_a_person(message, t):
+        return
+    if await repo.leave(session, message.chat.id, message.from_user.id):
+        await message.answer(t.LEFT.format(name=name(message.from_user.full_name)))
+    else:
+        await message.reply(t.NOT_JOINED)
+
+
+@router.message(F.left_chat_member)
+async def member_left(message: Message, session: AsyncSession, bot: Bot) -> None:
+    """Leaving the group (or being removed from it) works like /leave."""
+    if message.left_chat_member.id != bot.id:
+        await repo.leave(session, message.chat.id, message.left_chat_member.id)
+
+
 @router.message(Command("members"))
 async def members_cmd(message: Message, session: AsyncSession, t: Ru) -> None:
-    people = await repo.members(session, message.chat.id)
+    people = [m for m in await repo.members(session, message.chat.id) if m.active]
     listing = ", ".join(escape(m.name) for m in people) or "—"
     await message.answer(t.MEMBERS.format(names=listing), reply_markup=kb.join(t))
+
+
+@router.message(F.migrate_to_chat_id | F.migrate_from_chat_id)
+async def group_upgraded(message: Message, session: AsyncSession) -> None:
+    """A group upgraded to a supergroup gets a new id, and its expenses move there.
+    Telegram reports the upgrade in both chats; the first report moves everything."""
+    if message.migrate_to_chat_id:
+        await repo.move_chat(session, message.chat.id, message.migrate_to_chat_id)
+    else:
+        await repo.move_chat(session, message.migrate_from_chat_id, message.chat.id)
 
 
 # --- Expenses ---
@@ -158,10 +197,13 @@ async def expense_text(t: Ru, session: AsyncSession, expense: Expense, currency:
 async def record_expense(
     message: Message, session: AsyncSession, t: Ru, payer: User, amount: int, description: str
 ) -> None:
+    if not await from_a_person(message, t):
+        return
     chat = await repo.ensure_chat(session, message.chat.id, message.chat.title)
     await repo.ensure_member(session, chat.id, payer)
-    people = [m.user_id for m in await repo.members(session, chat.id)]
-    expense = await repo.add_expense(session, chat.id, payer.id, amount, description, people)
+    # Everyone taking part, and the payer even after /leave: it's their own expense
+    people = {m.user_id for m in await repo.members(session, chat.id) if m.active} | {payer.id}
+    expense = await repo.add_expense(session, chat.id, payer.id, amount, description, list(people))
     await message.reply(
         await expense_text(t, session, expense, chat.currency),
         reply_markup=kb.expense(t, expense.id),
@@ -180,7 +222,8 @@ async def add_cmd(message: Message, command: CommandObject, session: AsyncSessio
 @router.message(F.via_bot, F.text.startswith(INLINE_PREFIX))
 async def inline_expense(message: Message, session: AsyncSession, bot: Bot, t: Ru) -> None:
     """An expense typed as `@bot 3000 такси` and sent to the group."""
-    if message.via_bot.id != bot.id:
+    # A forwarded copy may still say "via @bot", but the expense was recorded the first time
+    if message.via_bot.id != bot.id or message.forward_origin is not None:
         return
     parsed = parse_amount(message.text.removeprefix(INLINE_PREFIX))
     if parsed:
@@ -192,12 +235,25 @@ async def is_chat_member(session: AsyncSession, expense: Expense, user_id: int) 
     return user_id in {m.user_id for m in await repo.members(session, expense.chat_id)}
 
 
-async def load_own_expense(cb: CallbackQuery, session: AsyncSession, t: Ru, expense_id: int):
-    expense = await repo.get_expense(session, expense_id)
+async def load_editable_expense(
+    cb: CallbackQuery,
+    session: AsyncSession,
+    bot: Bot,
+    t: Ru,
+    expense_id: int,
+    *,
+    lock: bool = False,
+) -> Expense | None:
+    """The expense under the pressed button, if the presser may change it: whoever paid, or
+    a chat admin (someone has to be able to remove a joke expense). Otherwise the button is
+    answered and None returned. `lock` is for changing the expense, see repo.get_expense."""
+    expense = await repo.get_expense(session, expense_id, lock=lock)
     if expense is None or expense.is_deleted or expense.chat_id != cb.message.chat.id:
         await cb.answer()
         return None
-    if expense.payer_id != cb.from_user.id:
+    if expense.payer_id != cb.from_user.id and not await is_admin(
+        bot, expense.chat_id, cb.from_user.id
+    ):
         await cb.answer(t.ONLY_PAYER, show_alert=True)
         return None
     return expense
@@ -205,9 +261,9 @@ async def load_own_expense(cb: CallbackQuery, session: AsyncSession, t: Ru, expe
 
 @router.callback_query(kb.ExpenseAction.filter(F.action == "people"))
 async def edit_people(
-    cb: CallbackQuery, callback_data: kb.ExpenseAction, session: AsyncSession, t: Ru
+    cb: CallbackQuery, callback_data: kb.ExpenseAction, session: AsyncSession, bot: Bot, t: Ru
 ) -> None:
-    expense = await load_own_expense(cb, session, t, callback_data.id)
+    expense = await load_editable_expense(cb, session, bot, t, callback_data.id)
     if expense is None:
         return
     await show_participants(cb, session, t, expense)
@@ -218,23 +274,30 @@ async def show_participants(
     cb: CallbackQuery, session: AsyncSession, t: Ru, expense: Expense
 ) -> None:
     chat = await repo.ensure_chat(session, expense.chat_id, None)
-    people = await repo.members(session, expense.chat_id)
+    selected = {s.user_id for s in expense.shares}
+    # Those who left are listed only while they're in this expense, so they can be unticked
+    people = [
+        m for m in await repo.members(session, expense.chat_id) if m.active or m.user_id in selected
+    ]
     await cb.message.edit_text(
         t.CHOOSE_PARTICIPANTS.format(
             amount=fmt_money(expense.amount, chat.currency),
             description=with_description(expense.description),
         )
         + t.PARTICIPANTS_HINT,
-        reply_markup=kb.participants(t, expense.id, people, {s.user_id for s in expense.shares}),
+        reply_markup=kb.participants(t, expense.id, people, selected),
     )
 
 
 @router.callback_query(kb.Toggle.filter())
 async def toggle_person(
-    cb: CallbackQuery, callback_data: kb.Toggle, session: AsyncSession, t: Ru
+    cb: CallbackQuery, callback_data: kb.Toggle, session: AsyncSession, bot: Bot, t: Ru
 ) -> None:
-    expense = await load_own_expense(cb, session, t, callback_data.expense)
-    if expense is None or not await is_chat_member(session, expense, callback_data.user):
+    expense = await load_editable_expense(cb, session, bot, t, callback_data.expense, lock=True)
+    if expense is None:
+        return
+    if not await is_chat_member(session, expense, callback_data.user):
+        await cb.answer()
         return
     selected = {s.user_id for s in expense.shares} ^ {callback_data.user}
     if not selected:
@@ -251,11 +314,17 @@ async def toggle_person(
 
 @router.callback_query(kb.ExpenseAction.filter(F.action == "done"))
 async def people_done(
-    cb: CallbackQuery, callback_data: kb.ExpenseAction, session: AsyncSession, t: Ru
+    cb: CallbackQuery,
+    callback_data: kb.ExpenseAction,
+    session: AsyncSession,
+    state: FSMContext,
+    bot: Bot,
+    t: Ru,
 ) -> None:
-    expense = await load_own_expense(cb, session, t, callback_data.id)
+    expense = await load_editable_expense(cb, session, bot, t, callback_data.id)
     if expense is None:
         return
+    await forget_share_question(state, bot, cb.message.chat.id, expense.id)
     chat = await repo.ensure_chat(session, expense.chat_id, None)
     await cb.message.edit_text(
         await expense_text(t, session, expense, chat.currency),
@@ -267,14 +336,15 @@ async def people_done(
 @router.callback_query(kb.MeToo.filter())
 async def me_too(cb: CallbackQuery, callback_data: kb.MeToo, session: AsyncSession, t: Ru) -> None:
     """Anyone who took part adds themselves to the expense (and to the chat's participants)."""
-    expense = await repo.get_expense(session, callback_data.expense)
+    # Before locking the expense: this commits, and a commit releases the lock
+    await repo.ensure_member(session, cb.message.chat.id, cb.from_user)
+    expense = await repo.get_expense(session, callback_data.expense, lock=True)
     if expense is None or expense.is_deleted or expense.chat_id != cb.message.chat.id:
         await cb.answer()
         return
     if cb.from_user.id in {s.user_id for s in expense.shares}:
         await cb.answer(t.ALREADY_IN_EXPENSE)
         return
-    await repo.ensure_member(session, expense.chat_id, cb.from_user)
     try:
         await repo.set_participants(
             session, expense, [s.user_id for s in expense.shares] + [cb.from_user.id]
@@ -321,20 +391,42 @@ async def amounts_view(t: Ru, session: AsyncSession, expense: Expense):
     return text, kb.amounts(t, expense.id, rows, chat.currency)
 
 
+async def tidy_up(bot: Bot, chat_id: int, message_ids: list[int]) -> None:
+    """Delete a question about an amount and the attempts to answer it. Others' messages
+    need "delete messages" rights, so failing is fine."""
+    for message_id in message_ids:
+        with suppress(TelegramBadRequest, TelegramForbiddenError):
+            await bot.delete_message(chat_id, message_id)
+
+
+async def forget_share_question(
+    state: FSMContext, bot: Bot, chat_id: int, expense_id: int | None = None
+) -> None:
+    """Drop the unanswered "how much for X?" together with its messages; with `expense_id`,
+    only if the question is about that expense."""
+    data = await state.get_data()
+    if not data or (expense_id is not None and data.get("expense") != expense_id):
+        return
+    await state.clear()
+    await tidy_up(bot, chat_id, [*data.get("prompts", []), *data.get("cleanup", [])])
+
+
 @router.callback_query(kb.ExpenseAction.filter(F.action.in_({"amounts", "equal"})))
 async def edit_amounts(
     cb: CallbackQuery,
     callback_data: kb.ExpenseAction,
     session: AsyncSession,
     state: FSMContext,
+    bot: Bot,
     t: Ru,
 ) -> None:
-    expense = await load_own_expense(cb, session, t, callback_data.id)
+    equal = callback_data.action == "equal"
+    expense = await load_editable_expense(cb, session, bot, t, callback_data.id, lock=equal)
     if expense is None:
         return
-    await state.clear()
-    if callback_data.action == "equal":
+    if equal:
         await repo.split_evenly(session, expense)
+    await forget_share_question(state, bot, cb.message.chat.id, expense.id)
     text, markup = await amounts_view(t, session, expense)
     await cb.message.edit_text(text, reply_markup=markup)
     await cb.answer()
@@ -346,11 +438,17 @@ async def pick_share(
     callback_data: kb.PickShare,
     session: AsyncSession,
     state: FSMContext,
+    bot: Bot,
     t: Ru,
 ) -> None:
-    expense = await load_own_expense(cb, session, t, callback_data.expense)
-    if expense is None or callback_data.user not in {s.user_id for s in expense.shares}:
+    expense = await load_editable_expense(cb, session, bot, t, callback_data.expense)
+    if expense is None:
         return
+    if callback_data.user not in {s.user_id for s in expense.shares}:
+        await cb.answer()
+        return
+    # One question at a time: an earlier one (maybe about someone else) goes away
+    await forget_share_question(state, bot, cb.message.chat.id)
     chat = await repo.ensure_chat(session, expense.chat_id, None)
     names = await repo.names(session, expense.chat_id)
     # In groups the bot only sees replies to its own messages (privacy mode), hence ForceReply
@@ -363,11 +461,14 @@ async def pick_share(
         reply_markup=ForceReply(selective=True),
     )
     await state.set_state(EnterShare.amount)
-    await state.update_data(
-        expense=expense.id,
-        user=callback_data.user,
-        editor=cb.message.message_id,
-        prompt=prompt.message_id,
+    await state.set_data(
+        {
+            "expense": expense.id,
+            "user": callback_data.user,
+            "editor": cb.message.message_id,
+            # The question, then a hint after each wrong answer: a reply to any of them counts
+            "prompts": [prompt.message_id],
+        }
     )
     await cb.answer()
 
@@ -377,48 +478,27 @@ async def ask_again(message: Message, state: FSMContext, text: str) -> None:
     a reply to the bot, otherwise privacy mode hides it from the bot."""
     hint = await message.reply(text, reply_markup=ForceReply(selective=True))
     data = await state.get_data()
-    cleanup = [*data.get("cleanup", []), message.message_id, hint.message_id]
-    await state.update_data(cleanup=cleanup)
-
-
-@router.message(EnterShare.amount, F.text)
-async def share_entered(
-    message: Message, session: AsyncSession, state: FSMContext, bot: Bot, t: Ru
-) -> None:
-    parsed = parse_amount(message.text)
-    if parsed is None:
-        await ask_again(message, state, t.BAD_SHARE)
-        return
-    data = await state.get_data()
-    expense = await repo.get_expense(session, data["expense"])
-    if expense is None or expense.is_deleted or expense.payer_id != message.from_user.id:
-        await state.clear()
-        return
-    try:
-        await repo.set_share(session, expense, data["user"], parsed[0])
-    except ShareError as e:
-        await ask_again(message, state, await share_error_text(t, session, expense, e))
-        return
-    await state.clear()
-    text, markup = await amounts_view(t, session, expense)
-    await bot.edit_message_text(
-        text, chat_id=message.chat.id, message_id=data["editor"], reply_markup=markup
+    await state.update_data(
+        prompts=[*data.get("prompts", []), hint.message_id],
+        cleanup=[*data.get("cleanup", []), message.message_id],
     )
-    # Tidy up the question, wrong attempts and the answer; needs "delete messages" rights
-    for message_id in [data["prompt"], *data.get("cleanup", []), message.message_id]:
-        with suppress(TelegramBadRequest, TelegramForbiddenError):
-            await bot.delete_message(message.chat.id, message_id)
 
 
 @router.callback_query(kb.ExpenseAction.filter(F.action == "delete"))
 async def delete_expense(
-    cb: CallbackQuery, callback_data: kb.ExpenseAction, session: AsyncSession, t: Ru
+    cb: CallbackQuery,
+    callback_data: kb.ExpenseAction,
+    session: AsyncSession,
+    state: FSMContext,
+    bot: Bot,
+    t: Ru,
 ) -> None:
-    expense = await load_own_expense(cb, session, t, callback_data.id)
+    expense = await load_editable_expense(cb, session, bot, t, callback_data.id, lock=True)
     if expense is None:
         return
-    chat = await repo.ensure_chat(session, expense.chat_id, None)
     await repo.delete_expense(session, expense)
+    await forget_share_question(state, bot, cb.message.chat.id, expense.id)
+    chat = await repo.ensure_chat(session, expense.chat_id, None)
     await cb.message.edit_text(
         t.EXPENSE_DELETED.format(
             amount=fmt_money(expense.amount, chat.currency),
@@ -479,20 +559,16 @@ async def settle(cb: CallbackQuery, callback_data: kb.Settle, session: AsyncSess
         await cb.answer(t.SETTLE_NOT_YOURS, show_alert=True)
         return
     chat = await repo.ensure_chat(session, cb.message.chat.id, cb.message.chat.title)
-    # Take the amount from the current balance, not from the (possibly old) button
-    current = {(d, c): a for d, c, a in settle_up(await repo.balances(session, chat.id))}
-    amount = current.get((callback_data.debtor, callback_data.creditor))
-    if amount is None:
+    debtor, creditor, amount = callback_data.debtor, callback_data.creditor, callback_data.amount
+    # Exactly the transfer on the button: after a new expense its amount no longer matches
+    if not await repo.record_settlement(session, chat.id, debtor, creditor, amount):
         await cb.answer(t.SETTLE_STALE, show_alert=True)
         return
-    await repo.add_settlement(
-        session, chat.id, callback_data.debtor, callback_data.creditor, amount
-    )
     names = await repo.names(session, chat.id)
     await cb.message.answer(
         t.SETTLED.format(
-            debtor=name(names.get(callback_data.debtor, "?")),
-            creditor=name(names.get(callback_data.creditor, "?")),
+            debtor=name(names.get(debtor, "?")),
+            creditor=name(names.get(creditor, "?")),
             amount=fmt_money(amount, chat.currency),
         )
     )
@@ -501,11 +577,17 @@ async def settle(cb: CallbackQuery, callback_data: kb.Settle, session: AsyncSess
     await cb.answer()
 
 
+@router.callback_query(F.data.startswith(f"{kb.Settle.__prefix__}:"))
+async def old_settle_button(cb: CallbackQuery, t: Ru) -> None:
+    """A /balance button from before buttons carried the amount."""
+    await cb.answer(t.SETTLE_STALE, show_alert=True)
+
+
 @router.message(Command("currency"))
 async def currency(
     message: Message, command: CommandObject, session: AsyncSession, bot: Bot, t: Ru
 ) -> None:
-    if not await is_admin(bot, message.chat.id, message.from_user.id):
+    if not await sender_is_admin(bot, message):
         await message.reply(t.ONLY_ADMINS)
         return
     value = (command.args or "").strip()
@@ -535,3 +617,46 @@ async def currency_button(
     await repo.set_currency(session, chat, callback_data.symbol)
     await cb.message.edit_text(t.CURRENCY_SET.format(currency=escape(callback_data.symbol)))
     await cb.answer()
+
+
+# --- Answers to "how much for X?" ---
+# Registered last, after every command: a pending question must not swallow /balance
+
+
+@router.message(EnterShare.amount, F.text, ~F.text.startswith("/"), F.reply_to_message)
+async def share_entered(
+    message: Message, session: AsyncSession, state: FSMContext, bot: Bot, t: Ru
+) -> None:
+    data = await state.get_data()
+    # Only a reply to the current question: the payer may have tapped someone else since
+    if message.reply_to_message.message_id not in data.get("prompts", []):
+        return
+    expense = await repo.get_expense(session, data["expense"], lock=True)
+    if (
+        expense is None
+        or expense.is_deleted
+        or data["user"] not in {s.user_id for s in expense.shares}
+        or (expense.payer_id != message.from_user.id and not await sender_is_admin(bot, message))
+    ):
+        await forget_share_question(state, bot, message.chat.id)
+        return
+    parsed = parse_amount(message.text)
+    if parsed is None:
+        await ask_again(message, state, t.BAD_SHARE)
+        return
+    try:
+        await repo.set_share(session, expense, data["user"], parsed[0])
+    except ShareError as e:
+        await ask_again(message, state, await share_error_text(t, session, expense, e))
+        return
+    await state.clear()
+    # The question, wrong attempts and the answer aren't needed any more
+    await tidy_up(
+        bot, message.chat.id, [*data["prompts"], *data.get("cleanup", []), message.message_id]
+    )
+    text, markup = await amounts_view(t, session, expense)
+    # The same amount again leaves the text as it was, and Telegram refuses such an edit
+    with suppress(TelegramBadRequest):
+        await bot.edit_message_text(
+            text, chat_id=message.chat.id, message_id=data["editor"], reply_markup=markup
+        )

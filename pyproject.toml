@@ -1,7 +1,7 @@
 [project]
 name = "telegram-bots"
 version = "0.1.0"
-description = "Portfolio Telegram bots: SlotBook, ChatGuard AI, SplitMates"
+description = "Portfolio Telegram bots: SlotBook, ChatGuard AI, SplitMates, JobRadar"
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]

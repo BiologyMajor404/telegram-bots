@@ -3,9 +3,10 @@
 import re
 from collections.abc import Iterable
 
-# "3000 такси", "1 250,50 продукты", "99.9 кофе"
-AMOUNT_RE = re.compile(r"^\s*(\d{1,7}(?:[  ]\d{3})*(?:[.,]\d{1,2})?)(?:\s+(.*))?$", re.S)
-MAX_AMOUNT = 100_000_000 * 100  # 100M in minor units, a sanity limit
+# "3000 такси", "1 250,50 продукты", "99.9 кофе". Up to 9 digits in a row, as many as
+# MAX_AMOUNT has: inline mode writes amounts without separators
+AMOUNT_RE = re.compile(r"^\s*(\d{1,9}(?:[  ]\d{3})*(?:[.,]\d{1,2})?)(?:\s+(.*))?$", re.S)
+MAX_AMOUNT = 100_000_000 * 100  # 100M in minor units, a sanity limit (columns are BIGINT)
 DESCRIPTION_LIMIT = 128
 
 Transfer = tuple[int, int, int]  # (from_user, to_user, amount)
@@ -87,7 +88,9 @@ def net_balances(
 
 
 def settle_up(net: dict[int, int]) -> list[Transfer]:
-    """Few transfers that zero out all balances: the biggest debtor pays the biggest creditor."""
+    """Few transfers that zero out all balances: the biggest debtor pays the biggest creditor.
+    At most one fewer than the people involved, but not always the fewest possible (finding
+    those is NP-hard), so the texts don't promise a minimum."""
     debtors = sorted(((-v, uid) for uid, v in net.items() if v < 0), reverse=True)
     creditors = sorted(((v, uid) for uid, v in net.items() if v > 0), reverse=True)
     transfers = []

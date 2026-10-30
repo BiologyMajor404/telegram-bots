@@ -16,6 +16,12 @@ class Plans:
     pro_price_stars: int
     global_limit: int  # AI checks per day for the whole bot
 
+    @property
+    def free_global_limit(self) -> int:
+        """Free chats together use at most two thirds of the global limit: the rest is kept
+        for Pro chats, so throwaway groups can't use it all up."""
+        return self.global_limit * 2 // 3
+
 
 class ChatGuardSettings(CommonSettings):
     token: SecretStr = Field(validation_alias="CHATGUARD_TOKEN")

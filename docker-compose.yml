@@ -1,14 +1,28 @@
+# Shared by every service: restart after a crash, and logs that can't fill the disk
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
 services:
   postgres:
+    <<: *service
     image: postgres:17-alpine
-    restart: unless-stopped
     environment:
       POSTGRES_USER: bots
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bots}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: bots
+      # For docker/postgres/init.sh: each bot's own database user (used on a fresh volume)
+      SLOTBOOK_DB_PASSWORD: ${SLOTBOOK_DB_PASSWORD:?set SLOTBOOK_DB_PASSWORD in .env}
+      SPLITMATE_DB_PASSWORD: ${SPLITMATE_DB_PASSWORD:?set SPLITMATE_DB_PASSWORD in .env}
+      CHATGUARD_DB_PASSWORD: ${CHATGUARD_DB_PASSWORD:?set CHATGUARD_DB_PASSWORD in .env}
+      JOBRADAR_DB_PASSWORD: ${JOBRADAR_DB_PASSWORD:?set JOBRADAR_DB_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -18,8 +32,8 @@ services:
       retries: 10
 
   redis:
+    <<: *service
     image: redis:7-alpine
-    restart: unless-stopped
     volumes:
       - redis_data:/data
     ports:
@@ -33,17 +47,18 @@ services:
   # Each bot gets only its own variables from .env (compose reads .env for ${...}),
   # so one bot can't see another bot's token or the Claude API key.
   slotbook:
+    <<: *service
     build: .
     command: ["python", "-m", "slotbook"]
-    restart: unless-stopped
     environment:
       SLOTBOOK_TOKEN: ${SLOTBOOK_TOKEN}
       SLOTBOOK_ADMIN_IDS: ${SLOTBOOK_ADMIN_IDS:-}
       SLOTBOOK_CURRENCY: ${SLOTBOOK_CURRENCY:-₴}
+      SLOTBOOK_SUPPORT_CONTACT: ${SLOTBOOK_SUPPORT_CONTACT:-}
       TIMEZONE: ${TIMEZONE:-Europe/Moscow}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # Inside the compose network services are reached by name, not localhost
-      SLOTBOOK_DATABASE_URL: postgresql+asyncpg://bots:${POSTGRES_PASSWORD:-bots}@postgres:5432/slotbook
+      SLOTBOOK_DATABASE_URL: postgresql+asyncpg://slotbook:${SLOTBOOK_DB_PASSWORD}@postgres:5432/slotbook
       REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
@@ -52,14 +67,14 @@ services:
         condition: service_healthy
 
   splitmate:
+    <<: *service
     build: .
     command: ["python", "-m", "splitmate"]
-    restart: unless-stopped
     environment:
       SPLITMATE_TOKEN: ${SPLITMATE_TOKEN}
       TIMEZONE: ${TIMEZONE:-Europe/Moscow}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      SPLITMATE_DATABASE_URL: postgresql+asyncpg://bots:${POSTGRES_PASSWORD:-bots}@postgres:5432/splitmate
+      SPLITMATE_DATABASE_URL: postgresql+asyncpg://splitmate:${SPLITMATE_DB_PASSWORD}@postgres:5432/splitmate
       REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
@@ -68,9 +83,9 @@ services:
         condition: service_healthy
 
   chatguard:
+    <<: *service
     build: .
     command: ["python", "-m", "chatguard"]
-    restart: unless-stopped
     environment:
       CHATGUARD_TOKEN: ${CHATGUARD_TOKEN}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -81,9 +96,47 @@ services:
       CHATGUARD_SUPPORT_CONTACT: ${CHATGUARD_SUPPORT_CONTACT:-}
       TIMEZONE: ${TIMEZONE:-Europe/Moscow}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      CHATGUARD_DATABASE_URL: postgresql+asyncpg://bots:${POSTGRES_PASSWORD:-bots}@postgres:5432/chatguard
+      CHATGUARD_DATABASE_URL: postgresql+asyncpg://chatguard:${CHATGUARD_DB_PASSWORD}@postgres:5432/chatguard
     depends_on:
       postgres:
+        condition: service_healthy
+
+  jobradar:
+    <<: *service
+    build: .
+    command: ["python", "-m", "jobradar"]
+    environment:
+      JOBRADAR_TOKEN: ${JOBRADAR_TOKEN}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      JOBRADAR_ALLOWED_IDS: ${JOBRADAR_ALLOWED_IDS:-}
+      JOBRADAR_ADMIN_IDS: ${JOBRADAR_ADMIN_IDS:-}
+      JOBRADAR_POLL_MINUTES: ${JOBRADAR_POLL_MINUTES:-10}
+      JOBRADAR_FREE_CARDS: ${JOBRADAR_FREE_CARDS:-5}
+      JOBRADAR_FREE_SOURCES: ${JOBRADAR_FREE_SOURCES:-1}
+      JOBRADAR_FREE_SEARCHES: ${JOBRADAR_FREE_SEARCHES:-3}
+      JOBRADAR_FREE_OWN_CHECKS: ${JOBRADAR_FREE_OWN_CHECKS:-15}
+      JOBRADAR_PRO_CARDS: ${JOBRADAR_PRO_CARDS:-20}
+      JOBRADAR_PRO_SOURCES: ${JOBRADAR_PRO_SOURCES:-10}
+      JOBRADAR_PRO_SEARCHES: ${JOBRADAR_PRO_SEARCHES:-10}
+      JOBRADAR_PRO_OWN_CHECKS: ${JOBRADAR_PRO_OWN_CHECKS:-60}
+      JOBRADAR_PRO_PRICE_STARS: ${JOBRADAR_PRO_PRICE_STARS:-250}
+      JOBRADAR_AI_MONTHLY_USD: ${JOBRADAR_AI_MONTHLY_USD:-3}
+      JOBRADAR_AI_USD_PER_PRO: ${JOBRADAR_AI_USD_PER_PRO:-2.5}
+      JOBRADAR_AI_DAILY_LIMIT: ${JOBRADAR_AI_DAILY_LIMIT:-400}
+      JOBRADAR_SUPPORT_CONTACT: ${JOBRADAR_SUPPORT_CONTACT:-}
+      FREELANCEHUNT_TOKEN: ${FREELANCEHUNT_TOKEN:-}
+      JOBRADAR_MAIL_ADDRESS: ${JOBRADAR_MAIL_ADDRESS:-}
+      JOBRADAR_MAIL_PASSWORD: ${JOBRADAR_MAIL_PASSWORD:-}
+      JOBRADAR_MAIL_IMAP_HOST: ${JOBRADAR_MAIL_IMAP_HOST:-imap.gmail.com}
+      JOBRADAR_TG_CHANNELS: ${JOBRADAR_TG_CHANNELS:-theyseeku,digital_jobster,bazuwork,zapwork}
+      TIMEZONE: ${TIMEZONE:-Europe/Moscow}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      JOBRADAR_DATABASE_URL: postgresql+asyncpg://jobradar:${JOBRADAR_DB_PASSWORD}@postgres:5432/jobradar
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:

@@ -2,8 +2,10 @@
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Connection, inspect
+from sqlalchemy import Connection, inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine
+
+MIGRATION_LOCK = 7_300_001  # any constant: advisory locks are per database
 
 
 def _upgrade(conn: Connection, script_location: str, baseline: tuple[str, str] | None) -> None:
@@ -23,4 +25,7 @@ async def run_migrations(
     """Upgrade the DB to the latest revision.
     baseline = (revision, table): if `table` exists without alembic history, stamp `revision`."""
     async with engine.begin() as conn:
+        # Two copies of a bot starting together (e.g. the container and a local run) take
+        # turns instead of migrating the same DB at once; released with the transaction
+        await conn.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": MIGRATION_LOCK})
         await conn.run_sync(_upgrade, script_location, baseline)

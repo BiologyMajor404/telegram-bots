@@ -1,13 +1,15 @@
 """Startup pieces every bot shares: the Bot object, the error handler and command menus."""
 
+import asyncio
+import contextlib
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramRetryAfter
 from aiogram.types import BotCommand, BotCommandScopeAllGroupChats, ErrorEvent
 from pydantic import SecretStr
 
@@ -27,14 +29,38 @@ def create_bot(token: SecretStr) -> Bot:
 async def on_error(event: ErrorEvent) -> bool:
     """Swallow harmless errors, log the rest; the bot keeps running either way."""
     # Pressing the same button twice tries to set identical text
-    if isinstance(event.exception, TelegramBadRequest) and "message is not modified" in str(
+    harmless = isinstance(event.exception, TelegramBadRequest) and "message is not modified" in str(
         event.exception
-    ):
-        if event.update.callback_query:
+    )
+    if not harmless:
+        log.exception("Unhandled error", exc_info=event.exception)
+    if event.update.callback_query:
+        # Stop the button's spinner; fails harmlessly if the handler answered already
+        with contextlib.suppress(TelegramAPIError):
             await event.update.callback_query.answer()
-        return True
-    log.exception("Unhandled error", exc_info=event.exception)
     return True
+
+
+PROFILE_TRIES = 5
+
+
+async def publish_profile(*steps: Callable[[], Awaitable[None]]) -> None:
+    """Set command menus and profile texts without ever stopping the bot: run as a
+    background task. Telegram rate-limits these calls, e.g. after several restarts in a row;
+    then wait as long as it asks and try again. The previous texts stay meanwhile."""
+    for step in steps:
+        for _ in range(PROFILE_TRIES):
+            try:
+                await step()
+                break
+            except TelegramRetryAfter as e:
+                log.warning("Telegram asks to wait %ss before updating the menus", e.retry_after)
+                await asyncio.sleep(e.retry_after + 1)
+            except TelegramAPIError as e:
+                log.warning("Couldn't update the menus or profile texts: %s", e)
+                break
+        else:
+            log.warning("Gave up updating the menus or profile texts after %d tries", PROFILE_TRIES)
 
 
 async def set_commands(

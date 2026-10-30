@@ -1,6 +1,6 @@
 """Inline keyboards and their callback data."""
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 from aiogram.filters.callback_data import CallbackData
@@ -8,8 +8,11 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from shared.i18n import LANGUAGE_BUTTON
-from slotbook.models import Booking, Service
-from slotbook.texts import Ru
+from slotbook.models import Booking, BookingStatus, Service
+from slotbook.texts import Ru, short
+
+# Client names in the master's cancel buttons
+BUTTON_NAME_LEN = 24
 
 # --- Callback data. Prefixes are short: Telegram limits callback data to 64 bytes ---
 
@@ -38,6 +41,12 @@ class Confirm(CallbackData, prefix="c"):
 
 
 class CancelBooking(CallbackData, prefix="x"):
+    """Asks first: cancelling may cost the client the deposit."""
+
+    id: int
+
+
+class CancelBookingYes(CallbackData, prefix="xy"):
     id: int
 
 
@@ -46,12 +55,31 @@ class Admin(CallbackData, prefix="a"):
     id: int = 0
 
 
+class AdminPage(CallbackData, prefix="ap"):
+    """A page of the master's booking list (opened with Admin(action="list", id=days))."""
+
+    days: int
+    page: int
+
+
 def day_to_int(d: date) -> int:
     return d.year * 10000 + d.month * 100 + d.day
 
 
-def int_to_day(v: int) -> date:
-    return date(v // 10000, v // 100 % 100, v % 100)
+def int_to_day(v: int) -> date | None:
+    """YYYYMMDD -> date; None if it isn't a real date (callback data can be forged)."""
+    try:
+        return date(v // 10000, v // 100 % 100, v % 100)
+    except (ValueError, OverflowError):
+        return None
+
+
+def ts_to_dt(ts: int) -> datetime | None:
+    """Unix timestamp from callback data -> UTC datetime; None outside 1970-2106, which only
+    forged data can have (and which would overflow date math later)."""
+    if not 0 <= ts < 2**32:
+        return None
+    return datetime.fromtimestamp(ts, UTC)
 
 
 # --- Client keyboards ---
@@ -121,6 +149,14 @@ def my_bookings(t: Ru, items: list[Booking], tz: ZoneInfo) -> InlineKeyboardMark
     return b.as_markup()
 
 
+def cancel_ask(t: Ru, booking_id: int) -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    b.button(text=t.BTN_CANCEL_YES, callback_data=CancelBookingYes(id=booking_id))
+    b.button(text=t.BTN_KEEP, callback_data=Menu(action="my"))
+    b.adjust(1)
+    return b.as_markup()
+
+
 # --- Admin keyboards ---
 
 
@@ -142,16 +178,31 @@ def admin_back(t: Ru) -> InlineKeyboardMarkup:
     return b.as_markup()
 
 
-def admin_bookings(t: Ru, items: list[Booking], tz: ZoneInfo) -> InlineKeyboardMarkup:
+def admin_bookings(
+    t: Ru, items: list[Booking], tz: ZoneInfo, days: int, page: int, pages: int
+) -> InlineKeyboardMarkup:
+    """A cancel button for every booking on this page, then the page arrows."""
     b = InlineKeyboardBuilder()
-    for bk in items[:30]:
+    for bk in items:
         local = bk.starts_at.astimezone(tz)
+        hold = " ⏳" if bk.status == BookingStatus.PENDING else ""
         b.button(
-            text=f"❌ {local:%d.%m %H:%M} {bk.user_name}",
+            text=f"❌ {local:%d.%m %H:%M}{hold} {short(bk.user_name, BUTTON_NAME_LEN)}",
             callback_data=Admin(action="cancel", id=bk.id),
         )
-    b.button(text=t.BTN_ADMIN_BACK, callback_data=Admin(action="menu"))
     b.adjust(1)
+    arrows = []
+    if page > 0:
+        arrows.append(
+            InlineKeyboardButton(text="◀️", callback_data=AdminPage(days=days, page=page - 1).pack())
+        )
+    if page < pages - 1:
+        arrows.append(
+            InlineKeyboardButton(text="▶️", callback_data=AdminPage(days=days, page=page + 1).pack())
+        )
+    if arrows:
+        b.row(*arrows)
+    b.row(InlineKeyboardButton(text=t.BTN_ADMIN_BACK, callback_data=Admin(action="menu").pack()))
     return b.as_markup()
 
 

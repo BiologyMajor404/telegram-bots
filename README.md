@@ -99,15 +99,16 @@ group chat that already exists.
 - Split equally between everyone who pressed **🙋 Я участвую**; the payer can pick who took part with toggle buttons
 - **Custom amounts (“who pays what”)**: set an exact amount for some people and everyone else splits the rest equally; shares always add up to the expense
 - **🙋 Count me in** under each expense: the bot can't list group members, so people add themselves with one tap
-- **`/balance`** shows each person's balance and the **minimal set of transfers** to settle up
-- One tap marks a debt as returned; only the payer or the receiver can confirm it
-- History, per-chat currency, delete your own expenses
+- **`/balance`** shows each person's balance and a short list of transfers to settle up
+- One tap marks a debt as returned; only the person who receives the money can confirm it
+- **`/leave`**: new expenses stop including you, your history and balance stay
+- History, per-chat currency; the payer or a chat admin can edit or delete an expense
 
 ### Engineering details
 - Money is stored in **integer minor units** (kopecks), never floats; equal splits distribute the remainder so shares always add up exactly
 - **Settle-up algorithm** ([`splitmate/money.py`](splitmate/money.py)): greedy matching of the largest debtor with the largest creditor, at most *n − 1* transfers
 - **Inline mode without knowing the chat:** Telegram doesn't tell the bot where an inline result was sent, so the bot records the expense when it sees the message posted *via itself* in a group (works even with privacy mode on)
-- Settling uses the **current** balance, not the amount baked into an old button, so stale buttons can't create wrong records
+- A settle button carries its amount and is recorded only while that exact transfer is still due, so stale buttons can't create wrong records; simultaneous taps are serialized with row locks
 - Pure functions covered by unit tests; DB logic checked against Postgres
 
 ---
@@ -138,7 +139,7 @@ classic captchas no longer stop them. ChatGuard checks what newcomers actually w
 - **Graceful degradation:** no API key, an API error or a model refusal never blocks the chat - the message is judged by rules alone
 - **Prompt-injection aware:** the message is passed as untrusted data, and "ignore your instructions" attempts are treated as a spam signal
 - **Structured outputs:** the model returns validated JSON (`is_spam`, `confidence`, `reason`), the reason written in the chat's language
-- Admin rights are checked through Telegram (cached), so only chat admins can change settings or restore people
+- Admin rights are checked through Telegram (cached), so only chat admins can change settings, and restoring someone takes the "Ban users" right, as it lifts mutes and bans
 
 ---
 
@@ -152,6 +153,8 @@ classic captchas no longer stop them. ChatGuard checks what newcomers actually w
    - `SLOTBOOK_TOKEN`: the token from BotFather
    - `SLOTBOOK_ADMIN_IDS`: your Telegram user ID (ask [@userinfobot](https://t.me/userinfobot))
    - `SPLITMATE_TOKEN`: the token of the second bot; enable inline mode for it in BotFather (`/setinline`)
+   - `POSTGRES_PASSWORD` and the four `*_DB_PASSWORD`: long random strings, each bot logs in to Postgres
+     with its own user that can reach only its own database
 3. Run everything:
    ```bash
    docker compose up -d --build
@@ -159,6 +162,8 @@ classic captchas no longer stop them. ChatGuard checks what newcomers actually w
 4. Open the bot in Telegram and press **Start**.
 
 ### Local development
+Two copies of a bot can't share one token, so stop its container first and pause the watchdog
+(below) by creating an empty `logs/watchdog.pause`; delete the file when you're done.
 ```bash
 docker compose up -d postgres redis      # only the infrastructure
 python -m venv .venv && .venv/Scripts/activate   # Windows; on Linux/macOS: source .venv/bin/activate
@@ -173,7 +178,7 @@ To survive Docker Desktop crashes and reboots, register the watchdog once:
 powershell -ExecutionPolicy Bypass -File scripts\install-watchdog.ps1
 ```
 Every 5 minutes it starts Docker Desktop if needed, restarts it if the engine hangs, and brings back
-any stopped service. Events go to `logs/watchdog.log`.
+any stopped service, unless `logs/watchdog.pause` exists. Events go to `logs/watchdog.log`.
 
 ### Tests and linting
 ```bash

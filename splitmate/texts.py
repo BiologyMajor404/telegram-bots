@@ -21,7 +21,7 @@ class Ru:
     BOT_DESCRIPTION = (
         "💸 SplitMates — общие расходы прямо в групповом чате.\n\n• записывайте "
         "траты: /add 3000 такси\n• делите поровну или задайте, кто сколько платит\n• "
-        "/balance покажет, кто кому сколько перевести, за минимум переводов\n• "
+        "/balance покажет короткий список переводов: кто кому сколько\n• "
         "гривна, злотый, доллар, евро и другие валюты\n\nДобавьте меня в группу, и "
         "начнём 👇"
     )
@@ -39,6 +39,7 @@ class Ru:
     CMD_BALANCE = "Кто кому должен"
     CMD_HISTORY = "Последние расходы"
     CMD_JOIN = "Участвовать в расходах"
+    CMD_LEAVE = "Не участвовать в новых расходах"
     CMD_MEMBERS = "Участники"
     CMD_CURRENCY = "Валюта чата"
     CMD_LANGUAGE = "Язык бота"
@@ -52,7 +53,7 @@ class Ru:
         "1. Добавьте меня в групповой чат кнопкой ниже\n"
         "2. Каждый участник нажимает «🙋 Я участвую»\n"
         "3. Записывайте расходы: <code>/add 3000 такси</code>\n"
-        "4. <code>/balance</code> покажет, кто кому сколько перевести, за минимум переводов"
+        "4. <code>/balance</code> покажет короткий список переводов: кто кому сколько"
     )
     WELCOME_GROUP = (
         "Привет, я <b>SplitMates</b> 💸 Посчитаю, кто кому должен.\n\n"
@@ -67,7 +68,15 @@ class Ru:
 
     JOINED = "🙋 {name} участвует в расходах"
     ALREADY_JOINED = "Вы уже участвуете 👍"
+    LEFT = (
+        "👋 {name} больше не участвует в новых расходах. Баланс и история остаются. "
+        "Вернуться: /join"
+    )
+    NOT_JOINED = "Вы и так не участвуете в новых расходах"
     MEMBERS = "👥 Участники: {names}"
+    POST_AS_YOURSELF = (
+        "Я веду учёт по людям: напишите от своего имени, а не от имени группы или канала"
+    )
 
     ADD_USAGE = "Напишите сумму и за что: <code>/add 3000 такси</code>"
     EXPENSE = (
@@ -87,7 +96,7 @@ class Ru:
         "\n\n<i>Нет нужного человека? Бот видит только тех, кто нажал "
         "«🙋 Я тоже участвую» или «🙋 Я участвую»</i>"
     )
-    ONLY_PAYER = "Менять расход может только тот, кто его записал"
+    ONLY_PAYER = "Менять расход может только тот, кто его записал, или администратор чата"
 
     BALANCE_EMPTY = "✅ Все в расчёте, никто никому не должен"
     BALANCE = "📊 <b>Баланс</b>\n\n{lines}\n\n💸 <b>Чтобы рассчитаться:</b>\n{transfers}"
@@ -140,7 +149,7 @@ class En(Ru):
     BOT_DESCRIPTION = (
         "💸 SplitMates — shared expenses right in your group chat.\n\n• record "
         "expenses: /add 30 taxi\n• split equally or set who pays what\n• /balance "
-        "shows who should pay whom, with the fewest transfers\n• dollar, euro, "
+        "shows a short list of transfers: who pays whom and how much\n• dollar, euro, "
         "hryvnia, zloty and other currencies\n\nAdd me to a group to get started 👇"
     )
     DEFAULT_CURRENCY = "$"
@@ -155,6 +164,7 @@ class En(Ru):
     CMD_BALANCE = "Who owes whom"
     CMD_HISTORY = "Recent expenses"
     CMD_JOIN = "Take part in expenses"
+    CMD_LEAVE = "Stop taking part in new expenses"
     CMD_MEMBERS = "Participants"
     CMD_CURRENCY = "Chat currency"
     CMD_LANGUAGE = "Bot language"
@@ -168,7 +178,7 @@ class En(Ru):
         "1. Add me to a group chat with the button below\n"
         "2. Everyone taking part presses “🙋 I'm in”\n"
         "3. Record expenses: <code>/add 30 taxi</code>\n"
-        "4. <code>/balance</code> shows who should pay whom, with the fewest transfers"
+        "4. <code>/balance</code> shows a short list of transfers: who pays whom and how much"
     )
     WELCOME_GROUP = (
         "Hi, I'm <b>SplitMates</b> 💸 I'll work out who owes whom.\n\n"
@@ -183,7 +193,12 @@ class En(Ru):
 
     JOINED = "🙋 {name} is in"
     ALREADY_JOINED = "You're already in 👍"
+    LEFT = "👋 {name} is out of new expenses. Their balance and history stay. To come back: /join"
+    NOT_JOINED = "You're not taking part in new expenses anyway"
     MEMBERS = "👥 Participants: {names}"
+    POST_AS_YOURSELF = (
+        "I keep track per person: write as yourself, not on behalf of the group or a channel"
+    )
 
     ADD_USAGE = "Send the amount and what it was for: <code>/add 30 taxi</code>"
     EXPENSE = (
@@ -203,7 +218,7 @@ class En(Ru):
         "\n\n<i>Someone missing? The bot only sees people who "
         "pressed “🙋 Count me in” or “🙋 I'm in”</i>"
     )
-    ONLY_PAYER = "Only the person who recorded the expense can change it"
+    ONLY_PAYER = "Only the person who recorded the expense or a chat admin can change it"
 
     BALANCE_EMPTY = "✅ All square, nobody owes anything"
     BALANCE = "📊 <b>Balance</b>\n\n{lines}\n\n💸 <b>To settle up:</b>\n{transfers}"
@@ -256,7 +271,7 @@ class Uk(Ru):
     BOT_DESCRIPTION = (
         "💸 SplitMates — спільні витрати просто в груповому чаті.\n\n• записуйте "
         "витрати: /add 300 таксі\n• діліть порівну або вкажіть, хто скільки платить\n"
-        "• /balance покаже, хто кому скільки переказати, за мінімум переказів\n• "
+        "• /balance покаже короткий список переказів: хто кому скільки\n• "
         "гривня, злотий, долар, євро та інші валюти\n\nДодайте мене в групу, і "
         "почнемо 👇"
     )
@@ -272,6 +287,7 @@ class Uk(Ru):
     CMD_BALANCE = "Хто кому винен"
     CMD_HISTORY = "Останні витрати"
     CMD_JOIN = "Брати участь у витратах"
+    CMD_LEAVE = "Не брати участі в нових витратах"
     CMD_MEMBERS = "Учасники"
     CMD_CURRENCY = "Валюта чату"
     CMD_LANGUAGE = "Мова бота"
@@ -286,7 +302,7 @@ class Uk(Ru):
         "1. Додайте мене в груповий чат кнопкою нижче\n"
         "2. Кожен учасник натискає «🙋 Я з вами»\n"
         "3. Записуйте витрати: <code>/add 300 таксі</code>\n"
-        "4. <code>/balance</code> покаже, хто кому скільки переказати, за мінімум переказів"
+        "4. <code>/balance</code> покаже короткий список переказів: хто кому скільки"
     )
     WELCOME_GROUP = (
         "Привіт, я <b>SplitMates</b> 💸 Порахую, хто кому винен.\n\n"
@@ -301,7 +317,15 @@ class Uk(Ru):
 
     JOINED = "🙋 {name} бере участь у витратах"
     ALREADY_JOINED = "Ви вже берете участь 👍"
+    LEFT = (
+        "👋 {name} більше не бере участі в нових витратах. Баланс та історія лишаються. "
+        "Повернутися: /join"
+    )
+    NOT_JOINED = "Ви й так не берете участі в нових витратах"
     MEMBERS = "👥 Учасники: {names}"
+    POST_AS_YOURSELF = (
+        "Я веду облік по людях: напишіть від свого імені, а не від імені групи чи каналу"
+    )
 
     ADD_USAGE = "Напишіть суму і за що: <code>/add 300 таксі</code>"
     EXPENSE = (
@@ -322,7 +346,7 @@ class Uk(Ru):
         "\n\n<i>Немає потрібної людини? Бот бачить лише тих, хто "
         "натиснув «🙋 Я теж беру участь» або «🙋 Я з вами»</i>"
     )
-    ONLY_PAYER = "Змінювати витрату може лише той, хто її записав"
+    ONLY_PAYER = "Змінювати витрату може лише той, хто її записав, або адміністратор чату"
 
     BALANCE_EMPTY = "✅ Усі в розрахунку, ніхто нікому не винен"
     BALANCE = "📊 <b>Баланс</b>\n\n{lines}\n\n💸 <b>Щоб розрахуватися:</b>\n{transfers}"
@@ -375,9 +399,8 @@ class Pl(Ru):
     BOT_DESCRIPTION = (
         "💸 SplitMates — wspólne wydatki prosto w czacie grupowym.\n\n• zapisuj "
         "wydatki: /add 50 taxi\n• dziel po równo albo ustal, kto ile płaci\n• "
-        "/balance pokaże, kto komu ile przelać, przy jak najmniejszej liczbie "
-        "przelewów\n• złoty, hrywna, dolar, euro i inne waluty\n\nDodaj mnie do "
-        "grupy i zaczynamy 👇"
+        "/balance pokaże krótką listę przelewów: kto komu ile\n• złoty, hrywna, "
+        "dolar, euro i inne waluty\n\nDodaj mnie do grupy i zaczynamy 👇"
     )
     DEFAULT_CURRENCY = "zł"
 
@@ -391,6 +414,7 @@ class Pl(Ru):
     CMD_BALANCE = "Kto komu wisi"
     CMD_HISTORY = "Ostatnie wydatki"
     CMD_JOIN = "Dołącz do rozliczeń"
+    CMD_LEAVE = "Wypisz się z nowych wydatków"
     CMD_MEMBERS = "Uczestnicy"
     CMD_CURRENCY = "Waluta czatu"
     CMD_LANGUAGE = "Język bota"
@@ -405,8 +429,7 @@ class Pl(Ru):
         "1. Dodaj mnie do czatu grupowego przyciskiem poniżej\n"
         "2. Każdy uczestnik naciska „🙋 Wchodzę”\n"
         "3. Zapisujcie wydatki: <code>/add 50 taxi</code>\n"
-        "4. <code>/balance</code> pokaże, kto komu ile przelać, przy jak najmniejszej "
-        "liczbie przelewów"
+        "4. <code>/balance</code> pokaże krótką listę przelewów: kto komu ile"
     )
     WELCOME_GROUP = (
         "Cześć, jestem <b>SplitMates</b> 💸 Policzę, kto komu ile winien.\n\n"
@@ -421,7 +444,12 @@ class Pl(Ru):
 
     JOINED = "🙋 {name} dzieli wydatki"
     ALREADY_JOINED = "Już jesteś w rozliczeniach 👍"
+    LEFT = "👋 {name} nie dzieli już nowych wydatków. Bilans i historia zostają. Powrót: /join"
+    NOT_JOINED = "I tak nie dzielisz nowych wydatków"
     MEMBERS = "👥 Uczestnicy: {names}"
+    POST_AS_YOURSELF = (
+        "Rozliczam konkretne osoby: napisz we własnym imieniu, a nie w imieniu grupy czy kanału"
+    )
 
     ADD_USAGE = "Podaj kwotę i za co: <code>/add 50 taxi</code>"
     EXPENSE = (
@@ -442,7 +470,7 @@ class Pl(Ru):
         "\n\n<i>Brakuje kogoś? Bot widzi tylko osoby, które nacisnęły "
         "„🙋 Ja też się dorzucam” lub „🙋 Wchodzę”</i>"
     )
-    ONLY_PAYER = "Wydatek może zmienić tylko osoba, która go dodała"
+    ONLY_PAYER = "Wydatek może zmienić tylko osoba, która go dodała, albo administrator czatu"
 
     BALANCE_EMPTY = "✅ Wszyscy są rozliczeni, nikt nikomu nic nie wisi"
     BALANCE = "📊 <b>Bilans</b>\n\n{lines}\n\n💸 <b>Aby się rozliczyć:</b>\n{transfers}"

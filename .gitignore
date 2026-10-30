@@ -1,5 +1,6 @@
-# Secrets
-.env
+# Secrets: .env and any copy of it, e.g. .env.bak
+.env*
+!.env.example
 
 # Python
 __pycache__/

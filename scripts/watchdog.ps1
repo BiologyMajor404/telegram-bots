@@ -9,6 +9,13 @@ $env:Path = "$env:LOCALAPPDATA\Programs\DockerDesktop\resources\bin;$env:Path"
 $log = Join-Path $root 'logs\watchdog.log'
 New-Item -ItemType Directory -Force (Split-Path $log) | Out-Null
 
+# A bot stopped on purpose (e.g. to run it locally) must stay stopped: while this file
+# exists the watchdog does nothing
+if (Test-Path (Join-Path $root 'logs\watchdog.pause')) { exit 0 }
+
+# Past 1 MB the log starts over; the previous one is kept as watchdog.log.1
+if ((Test-Path $log) -and (Get-Item $log).Length -gt 1MB) { Move-Item $log "$log.1" -Force }
+
 function Log($msg) {
     "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg" | Add-Content $log -Encoding utf8
 }

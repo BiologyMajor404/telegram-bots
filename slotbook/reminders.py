@@ -1,4 +1,4 @@
-"""Background jobs: visit reminders and releasing unpaid holds."""
+"""Background jobs: visit reminders, releasing unpaid holds and retrying failed refunds."""
 
 import asyncio
 import logging
@@ -10,13 +10,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from shared.notify import safe_send
-from slotbook import payments, repo
+from slotbook import payments, repo, scheduling
 from slotbook.models import Booking, BookingStatus
 from slotbook.scheduling import now_utc
 
 log = logging.getLogger(__name__)
 
 CHECK_INTERVAL_SEC = 60
+# Failed refunds are retried every this many checks (and right after start): often enough
+# to return money soon, rarely enough not to hammer Telegram if one keeps failing
+REFUND_RETRY_EVERY = 10
 
 # (flag column, how long before the visit, text attribute). The 2h check runs first: if both
 # are due at once (booking made late), only the 2h reminder is sent.
@@ -51,20 +54,47 @@ async def send_due_reminders(bot: Bot, session_factory: async_sessionmaker, tz: 
 
 
 async def release_unpaid_holds(bot: Bot, session_factory: async_sessionmaker, tz: ZoneInfo) -> None:
+    now = now_utc()
     async with session_factory() as session:
-        for booking in await repo.expire_unpaid(session, now_utc() - payments.HOLD_TIME):
+        for booking in await repo.expire_unpaid(session, now - payments.HOLD_TIME):
+            # Otherwise the same client could take the slot again at once and keep it blocked
+            scheduling.start_cooldown(booking.user_id, now)
             t = await repo.texts_for(session, booking.user_id)
             await safe_send(
                 bot, booking.user_id, t.PAY_HOLD_EXPIRED.format(booking=t.fmt_booking(booking, tz))
             )
 
 
+async def retry_refunds(bot: Bot, session_factory: async_sessionmaker, tz: ZoneInfo) -> None:
+    """Refunds Telegram refused earlier, or that a restart interrupted. Only bookings marked
+    refund_owed are tried, so a deposit kept after a late cancellation never goes back."""
+    async with session_factory() as session:
+        for booking in await repo.owed_refunds(session):
+            if not await payments.refund(bot, session, booking):
+                continue
+            t = await repo.texts_for(session, booking.user_id)
+            await safe_send(
+                bot,
+                booking.user_id,
+                t.REFUND_DONE.format(
+                    stars=booking.deposit_stars, booking=t.fmt_booking(booking, tz)
+                ),
+            )
+
+
 async def reminder_loop(bot: Bot, session_factory: async_sessionmaker, tz: ZoneInfo) -> None:
-    """Background jobs that run every minute: reminders and releasing unpaid holds."""
+    """Background jobs: every minute reminders and releasing unpaid holds, every
+    REFUND_RETRY_EVERY minutes refunds that failed before."""
+    check = 0
     while True:
-        try:
-            await release_unpaid_holds(bot, session_factory, tz)
-            await send_due_reminders(bot, session_factory, tz)
-        except Exception:
-            log.exception("Reminder check failed")
+        jobs = [release_unpaid_holds, send_due_reminders]
+        if check % REFUND_RETRY_EVERY == 0:
+            jobs.append(retry_refunds)
+        for job in jobs:
+            # One failing job must not stop the others
+            try:
+                await job(bot, session_factory, tz)
+            except Exception:
+                log.exception("Background job %s failed", job.__name__)
+        check += 1
         await asyncio.sleep(CHECK_INTERVAL_SEC)

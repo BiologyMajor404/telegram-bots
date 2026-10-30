@@ -11,6 +11,8 @@ class SlotBookSettings(CommonSettings):
     admin_ids_raw: str = Field("", validation_alias="SLOTBOOK_ADMIN_IDS")
     # Prices are shown in the master's currency whatever language the client uses
     currency: str = Field("₴", validation_alias="SLOTBOOK_CURRENCY")
+    # Shown in /paysupport, e.g. @your_username; empty = no contact line
+    support_contact: str = Field("", validation_alias="SLOTBOOK_SUPPORT_CONTACT")
 
     @field_validator("token")
     @classmethod

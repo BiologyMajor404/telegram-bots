@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from aiogram import Bot
+from aiogram.enums import ChatType
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.i18n import detect
@@ -16,12 +17,16 @@ async def resolve_lang(data: dict[str, Any]) -> str:
     user = data.get("event_from_user")
     if user is None:
         return "ru"
+    chat = data.get("event_chat")
+    if chat is not None and chat.type != ChatType.PRIVATE:
+        # The bot only works in private chats: don't store everyone who writes in a group
+        return detect(user.language_code)
     session = data["session"]
     lang = await repo.get_lang(session, user.id)
     if lang is None:
         lang = detect(user.language_code)
         # Saved right away so reminders and notifications use it too
-        await repo.set_lang(session, user.id, lang)
+        await repo.save_new_lang(session, user.id, lang)
     return lang
 
 

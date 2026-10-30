@@ -6,6 +6,7 @@ import string
 import pytest
 
 from chatguard import texts as chatguard_texts
+from jobradar import texts as jobradar_texts
 from shared.i18n import LANGS, command_locales, detect
 from slotbook import texts as slotbook_texts
 from splitmate import texts as splitmate_texts
@@ -13,12 +14,21 @@ from splitmate import texts as splitmate_texts
 # Texts that are legitimately identical to Russian (in every language / in a given one)
 SAME_EVERYWHERE = {"PUNISH_DELETE", "BTN_PRO", "PRO_INVOICE_TITLE"}  # brand names
 SAME_AS_RUSSIAN = {
-    "uk": {"DEFAULT_CURRENCY", "BTN_DONE", "SOURCE_RULES", "PLAN_PRO"},
+    "uk": {
+        "DEFAULT_CURRENCY",
+        "BTN_DONE",
+        "SOURCE_RULES",
+        "PLAN_PRO",
+        "CARD_PAY",
+        "CARD_SUMMARY",
+        "BTN_PAUSE",
+        "BTN_BACK",
+    },
 }
 
 CASES = [
     (module, code)
-    for module in (slotbook_texts, splitmate_texts, chatguard_texts)
+    for module in (slotbook_texts, splitmate_texts, chatguard_texts, jobradar_texts)
     for code in LANGS
     if code != "ru"
 ]
@@ -40,7 +50,9 @@ def fields(s: object) -> set[str]:
     return {f for _, f, _, _ in string.Formatter().parse(s) if f}
 
 
-@pytest.mark.parametrize("module", [slotbook_texts, splitmate_texts, chatguard_texts])
+@pytest.mark.parametrize(
+    "module", [slotbook_texts, splitmate_texts, chatguard_texts, jobradar_texts]
+)
 def test_every_language_is_registered(module):
     assert set(module.TEXTS) == set(LANGS)
     assert all(code == t.LANG for code, t in module.TEXTS.items())
@@ -86,7 +98,9 @@ def test_command_locales_cover_every_language():
     assert locales["en"] == [None]
 
 
-@pytest.mark.parametrize("module", [slotbook_texts, splitmate_texts, chatguard_texts])
+@pytest.mark.parametrize(
+    "module", [slotbook_texts, splitmate_texts, chatguard_texts, jobradar_texts]
+)
 def test_profile_texts_fit_telegram_limits(module):
     for t in module.TEXTS.values():
         assert len(t.BOT_SHORT_DESCRIPTION) <= 120, (t.LANG, len(t.BOT_SHORT_DESCRIPTION))

@@ -5,6 +5,9 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+# A Telegram full name can be one longer (64-character first and last names and a space)
+NAME_LENGTH = 128
+
 
 class Base(DeclarativeBase):
     pass
@@ -20,7 +23,8 @@ class Chat(Base):
 
 
 class Member(Base):
-    """A person taking part in the chat's expenses (joined via the button or by paying)."""
+    """A person taking part in the chat's expenses (joined via the button or by paying).
+    Someone who left keeps the row: their name still shows in balances and history."""
 
     __tablename__ = "members"
 
@@ -28,9 +32,11 @@ class Member(Base):
         BigInteger, ForeignKey("chats.id"), primary_key=True, autoincrement=False
     )
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
-    name: Mapped[str] = mapped_column(String(128))
+    name: Mapped[str] = mapped_column(String(NAME_LENGTH))
     username: Mapped[str | None] = mapped_column(String(64))
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # False after /leave or leaving the group: new expenses aren't split with them
+    active: Mapped[bool] = mapped_column(default=True, server_default="true")
 
 
 class Expense(Base):

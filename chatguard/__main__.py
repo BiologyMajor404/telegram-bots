@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from aiogram import Dispatcher
+from aiogram import Dispatcher, Router
 from aiogram.types import BotCommand
 
 from chatguard.ai import Classifier
@@ -11,11 +11,11 @@ from chatguard.config import ChatGuardSettings
 from chatguard.handlers import group, guard, payments, private
 from chatguard.i18n import resolve_lang
 from chatguard.texts import TEXTS, Ru
-from shared.bot_setup import create_bot, on_error, set_commands
+from shared.bot_setup import create_bot, on_error, publish_profile, set_commands
 from shared.db import init_db
 from shared.i18n import LangMiddleware, set_profile_texts
 from shared.log_setup import setup_logging
-from shared.middlewares import DbSessionMiddleware
+from shared.middlewares import DbSessionMiddleware, StaleButtonMiddleware
 
 log = logging.getLogger("chatguard")
 
@@ -36,6 +36,12 @@ def group_commands(t: Ru) -> list[BotCommand]:
     ]
 
 
+def routers() -> list[Router]:
+    """In the order they get updates. The guard goes first, so no other handler can take a
+    group message before it's checked; payments go before the private catch-all."""
+    return [guard.router, payments.router, group.router, private.router]
+
+
 async def main() -> None:
     settings = ChatGuardSettings()
     setup_logging(settings.log_level)
@@ -48,23 +54,31 @@ async def main() -> None:
 
     bot = create_bot(settings.token)
     dp = Dispatcher(
+        # No dialogs here; and with FSM on, aiogram would keep a record for every member of
+        # every group it has seen, for as long as it runs
+        disable_fsm=True,
         classifier=classifier,
         plans=settings.plans,
         support_contact=settings.support_contact,
     )
     dp.update.middleware(DbSessionMiddleware(session_factory))
     dp.update.middleware(LangMiddleware(resolve_lang, TEXTS))  # needs the DB session
+    dp.callback_query.outer_middleware(StaleButtonMiddleware())
     dp.errors.register(on_error)
-    # Payments first: payment messages arrive in private chats, where the catch-all lives.
-    # The guard goes before the group handlers so every group message is checked first.
-    dp.include_routers(payments.router, guard.router, group.router, private.router)
+    dp.include_routers(*routers())
 
-    await set_commands(bot, TEXTS, private=private_commands, group=group_commands)
-    await set_profile_texts(bot, TEXTS)
+    # In the background: Telegram may rate-limit these, which must not stop the bot
+    profile = asyncio.create_task(
+        publish_profile(
+            lambda: set_commands(bot, TEXTS, private=private_commands, group=group_commands),
+            lambda: set_profile_texts(bot, TEXTS),
+        )
+    )
     log.info("ChatGuard AI started (AI: %s)", "on" if classifier else "off")
     try:
         await dp.start_polling(bot)
     finally:
+        profile.cancel()
         await engine.dispose()
 
 

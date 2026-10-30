@@ -24,6 +24,9 @@ router = Router(name="payments")
 STARS = "XTR"
 PRO_PERIOD = timedelta(days=30)  # the only subscription period Telegram supports
 PAYLOAD_PREFIX = "pro:"
+# Pro running for longer than this means it's paid: a second subscription would charge twice.
+# Within the last day a payment may be the renewal itself, so it goes through
+RENEWAL_MARGIN = timedelta(days=1)
 
 
 def pro_payload(chat_id: int) -> str:
@@ -41,6 +44,10 @@ def parse_pro_payload(payload: str) -> int | None:
 
 def fmt_date(dt: datetime) -> str:
     return dt.strftime("%d.%m.%Y")
+
+
+def already_paid(chat: Chat, now: datetime) -> bool:
+    return chat.pro_until is not None and chat.pro_until > now + RENEWAL_MARGIN
 
 
 def subscription_end(expiration: int | datetime | None) -> datetime:
@@ -78,9 +85,15 @@ async def pro_offer(
 async def pre_checkout(
     query: PreCheckoutQuery, session: AsyncSession, bot: Bot, t: Ru, plans: Plans
 ) -> None:
-    """Last check before Telegram charges: a real chat, the current price, paid by its admin."""
+    """Last check before Telegram charges: a real chat without Pro yet, the current price,
+    paid by its admin. Old invoice links stay payable, so this is where a second
+    subscription for the same chat is stopped."""
     chat_id = parse_pro_payload(query.invoice_payload)
-    chat = await session.get(Chat, chat_id) if chat_id else None
+    chat = await repo.chat_for_payment(session, chat_id) if chat_id else None
+    if chat is not None and already_paid(chat, datetime.now(UTC)):
+        error = t.PRO_ALREADY_PAID.format(until=fmt_date(chat.pro_until))
+        await query.answer(ok=False, error_message=error)
+        return
     valid = (
         chat is not None
         and query.currency == STARS
@@ -97,7 +110,7 @@ async def pre_checkout(
 async def successful_payment(message: Message, session: AsyncSession, bot: Bot, t: Ru) -> None:
     payment = message.successful_payment
     chat_id = parse_pro_payload(payment.invoice_payload)
-    chat = await session.get(Chat, chat_id) if chat_id else None
+    chat = await repo.chat_for_payment(session, chat_id) if chat_id else None
     if chat is None:
         log.error("Pro payment %s for unknown chat", payment.telegram_payment_charge_id)
         return
@@ -123,7 +136,9 @@ async def successful_payment(message: Message, session: AsyncSession, bot: Bot, 
     )
 
 
-@router.message(Command("paysupport"))
+# Private chats only, like its menu entry: a group message is the spam guard's to judge
+# first, whatever the order of the routers
+@router.message(F.chat.type == "private", Command("paysupport"))
 async def paysupport(message: Message, t: Ru, support_contact: str) -> None:
     # Telegram requires bots that accept Stars to answer /paysupport
     text = t.PAYSUPPORT

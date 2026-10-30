@@ -18,6 +18,13 @@ APP_LANGUAGES = {"uk": "uk", "ru": "ru", "be": "ru", "kk": "ru", "pl": "pl"}
 # Same text in every language, so a user who can't read the current one still finds the switch
 LANGUAGE_BUTTON = "🌐 Мова / Язык / Język / Language"
 CHOOSE_LANGUAGE = "🌐 Оберіть мову / Выберите язык / Wybierz język / Choose language:"
+# A button under a message the bot can no longer see (deleted, or too old)
+STALE_BUTTON = {
+    "uk": "Це повідомлення застаріло — надішліть команду ще раз.",
+    "ru": "Это сообщение устарело — отправьте команду ещё раз.",
+    "pl": "Ta wiadomość jest nieaktualna — wyślij polecenie ponownie.",
+    "en": "This message is out of date — send the command again.",
+}
 
 
 def command_locales() -> dict[str, list[str | None]]:

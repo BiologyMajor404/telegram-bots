@@ -3,7 +3,6 @@ The spam check itself lives in handlers/guard.py and runs before these handlers.
 
 import logging
 from datetime import UTC, datetime
-from html import escape
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
@@ -16,10 +15,11 @@ from chatguard import repo
 from chatguard.ai import Classifier
 from chatguard.config import Plans
 from chatguard.handlers.payments import fmt_date, pro_offer
-from chatguard.models import Action, Chat
+from chatguard.models import Action, Chat, Incident, is_channel
+from chatguard.reports import restored_text
+from chatguard.rights import can_restore
 from chatguard.texts import TEXTS, Ru
-from shared.admins import is_admin
-from shared.formatting import user_link
+from shared.admins import is_admin, sender_is_admin
 from shared.i18n import CHOOSE_LANGUAGE, GROUP_CHATS, SetLang, lang_keyboard
 
 log = logging.getLogger(__name__)
@@ -46,6 +46,19 @@ async def start_cmd(message: Message, command: CommandObject, t: Ru) -> None:
 @router.message(Command("help"))
 async def help_cmd(message: Message, t: Ru) -> None:
     await message.answer(t.WELCOME_GROUP)
+
+
+# --- A group becoming a supergroup (it gets a new id; Telegram tells both chats) ---
+
+
+@router.message(F.migrate_to_chat_id)
+async def migrated_to(message: Message, session: AsyncSession) -> None:
+    await repo.migrate_chat(session, message.chat.id, message.migrate_to_chat_id)
+
+
+@router.message(F.migrate_from_chat_id)
+async def migrated_from(message: Message, session: AsyncSession) -> None:
+    await repo.migrate_chat(session, message.migrate_from_chat_id, message.chat.id)
 
 
 # --- Settings (admins only) ---
@@ -82,7 +95,7 @@ async def settings_cmd(
     classifier: Classifier | None,
     plans: Plans,
 ) -> None:
-    if not await is_admin(bot, message.chat.id, message.from_user.id):
+    if not await sender_is_admin(bot, message):
         await message.reply(t.ONLY_ADMINS)
         return
     chat = await repo.ensure_chat(session, message.chat.id, message.chat.title)
@@ -127,7 +140,7 @@ async def settings_change(
 
 @router.message(Command("pro"))
 async def pro_cmd(message: Message, session: AsyncSession, bot: Bot, t: Ru, plans: Plans) -> None:
-    if not await is_admin(bot, message.chat.id, message.from_user.id):
+    if not await sender_is_admin(bot, message):
         await message.reply(t.ONLY_ADMINS)
         return
     chat = await repo.ensure_chat(session, message.chat.id, message.chat.title)
@@ -137,7 +150,7 @@ async def pro_cmd(message: Message, session: AsyncSession, bot: Bot, t: Ru, plan
 
 @router.message(Command("language"))
 async def language_cmd(message: Message, bot: Bot, t: Ru) -> None:
-    if not await is_admin(bot, message.chat.id, message.from_user.id):
+    if not await sender_is_admin(bot, message):
         await message.reply(t.ONLY_ADMINS)
         return
     await message.answer(CHOOSE_LANGUAGE, reply_markup=lang_keyboard())
@@ -168,8 +181,8 @@ async def set_language(
 async def restore(
     cb: CallbackQuery, callback_data: kb.Restore, session: AsyncSession, bot: Bot, t: Ru
 ) -> None:
-    if not await is_admin(bot, cb.message.chat.id, cb.from_user.id):
-        await cb.answer(t.ONLY_ADMINS, show_alert=True)
+    if not await can_restore(bot, cb.message.chat.id, cb.from_user.id):
+        await cb.answer(t.RESTORE_NEEDS_RIGHT, show_alert=True)
         return
     incident = await repo.get_incident(session, callback_data.incident)
     if incident is None or incident.chat_id != cb.message.chat.id:
@@ -178,10 +191,31 @@ async def restore(
     if incident.restored:
         await cb.answer(t.ALREADY_RESTORED)
         return
+    await lift_punishment(bot, incident)
+    await repo.restore(session, incident)
+    await cb.message.edit_text(
+        restored_text(
+            t,
+            cb.from_user.id,
+            cb.from_user.full_name,
+            incident.user_id,
+            incident.user_name,
+            incident.text,
+        )
+    )
+    await cb.answer()
+
+
+async def lift_punishment(bot: Bot, incident: Incident) -> None:
+    """Undo the mute or ban; if Telegram refuses (e.g. the bot lost its rights), only log it."""
     try:
-        if incident.action == Action.BAN:
+        if incident.action == Action.DELETE:
+            return
+        if is_channel(incident.user_id):  # someone posted as a channel: the channel was banned
+            await bot.unban_chat_sender_chat(incident.chat_id, incident.user_id)
+        elif incident.action == Action.BAN:
             await bot.unban_chat_member(incident.chat_id, incident.user_id, only_if_banned=True)
-        elif incident.action == Action.MUTE:
+        else:
             # Back to the group's default permissions
             group = await bot.get_chat(incident.chat_id)
             await bot.restrict_chat_member(
@@ -189,12 +223,3 @@ async def restore(
             )
     except (TelegramBadRequest, TelegramForbiddenError) as e:
         log.warning("Can't lift the punishment in %s: %s", incident.chat_id, e)
-    await repo.restore(session, incident)
-    await cb.message.edit_text(
-        t.RESTORED.format(
-            admin=user_link(cb.from_user.id, cb.from_user.full_name),
-            user=user_link(incident.user_id, incident.user_name),
-            text=escape(incident.text),
-        )
-    )
-    await cb.answer()

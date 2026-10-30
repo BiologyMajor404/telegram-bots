@@ -5,7 +5,12 @@ from datetime import date, datetime
 from html import escape
 from zoneinfo import ZoneInfo
 
-from slotbook.models import Booking, Service
+from slotbook.models import Booking, BookingStatus, Service
+
+
+def short(text: str, limit: int) -> str:
+    """Cut a user-provided name to fit a list or a button. Escape the result, not the input."""
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 class Ru:
@@ -15,7 +20,7 @@ class Ru:
     BOT_DESCRIPTION = (
         "📅 SlotBook — онлайн-запись к мастеру.\n\n• выберите услугу, день и "
         "свободное время\n• напомню о визите за день и за 2 часа\n• отменить запись "
-        "можно в один клик\n\nДля мастера: панель с записями, услугами, рабочими "
+        "можно в пару нажатий\n\nДля мастера: панель с записями, услугами, рабочими "
         "часами и предоплатой в Telegram Stars.\n\nНажмите «Старт», чтобы записаться "
         "👇"
     )
@@ -60,7 +65,9 @@ class Ru:
 
     def fmt_booking(self, b: Booking, tz: ZoneInfo) -> str:
         text = f"<b>{self.fmt_dt(b.starts_at, tz)}</b>\n{self.fmt_service(b.service)}"
-        if b.payment_charge_id and not b.refunded:
+        if b.status == BookingStatus.PENDING:
+            text += "\n" + self.DEPOSIT_AWAITED.format(stars=b.deposit_stars)
+        elif b.payment_charge_id and not b.refunded:
             text += "\n" + self.DEPOSIT_PAID.format(stars=b.deposit_stars)
         return text
 
@@ -80,6 +87,8 @@ class Ru:
     BTN_DEPOSIT = "⭐ Предоплата"
     BTN_ADMIN_BACK = "◀️ Панель мастера"
     BTN_ADD_SERVICE = "➕ Добавить услугу"
+    BTN_CANCEL_YES = "❌ Да, отменить"
+    BTN_KEEP = "◀️ Нет, оставить"
 
     # --- Commands ---
     CMD_START = "Записаться"
@@ -112,6 +121,11 @@ class Ru:
         "У вас уже {limit} предстоящие записи, это максимум. Отмените одну в «Мои "
         "записи», чтобы записаться снова."
     )
+    HOLD_EXISTS = (
+        "У вас уже есть запись, которая ждёт оплаты депозита. Оплатите её или отмените "
+        "в «Мои записи», чтобы выбрать другое время."
+    )
+    REBOOK_COOLDOWN = "Запись только что отменена. Записаться снова можно через {minutes} мин 🙏"
     BOOKED = (
         "✅ Вы записаны!\n\n{booking}\n\n"
         "Я напомню за день и за 2 часа до визита. Отменить запись можно в «Мои записи»."
@@ -119,6 +133,7 @@ class Ru:
 
     # --- Deposit in Telegram Stars ---
     DEPOSIT_PAID = "⭐ Депозит {stars} оплачен"
+    DEPOSIT_AWAITED = "⏳ Ждёт оплаты депозита {stars} ⭐"
     PAY_REQUIRED = (
         "⏳ Почти готово! Время удержано за вами на {minutes} мин.\n\n{booking}\n\n"
         "Чтобы подтвердить запись, оплатите депозит <b>{stars} ⭐</b> в сообщении ниже. "
@@ -135,19 +150,37 @@ class Ru:
         "Оплата пришла уже после того, как бронь была снята, поэтому мы вернули Stars. "
         "Запишитесь заново, пожалуйста."
     )
-    PAYSUPPORT = (
-        "По вопросам оплаты напишите мастеру в этот чат или нажмите /start → «Мои записи». "
-        "Депозит возвращается автоматически при отмене не позже чем за 24 часа до визита "
-        "или если запись отменил мастер."
+    PAY_LATE_REFUND_PENDING = (
+        "Оплата пришла уже после того, как бронь была снята. Мы вернём Stars в ближайшее "
+        "время. Запишитесь заново, пожалуйста."
     )
+    PAY_EXTRA_REFUNDED = "Эта запись уже оплачена, поэтому второй платёж мы вернули ⭐"
+    PAY_EXTRA_REFUND_FAILED = (
+        "Эта запись уже оплачена. Второй платёж не получилось вернуть автоматически, "
+        "мы сообщили об этом мастеру."
+    )
+    PAYSUPPORT = (
+        "Депозит возвращается автоматически, если отменить запись не позже чем за 24 часа "
+        "до визита или если её отменил мастер. Если возврат не прошёл сразу, бот повторит "
+        "его сам. Посмотреть и отменить записи: /start → «Мои записи»."
+    )
+    PAYSUPPORT_CONTACT = "\nПо вопросам оплаты пишите: {contact}"
     CANCELLED_REFUNDED = "Запись отменена, депозит возвращён ⭐"
+    CANCELLED_REFUND_PENDING = (
+        "Запись отменена. Возврат депозита обрабатывается, он придёт в ближайшее время ⭐"
+    )
     CANCELLED_NO_REFUND = (
         "Запись отменена. До визита меньше 24 часов, поэтому депозит не возвращается."
     )
     DEPOSIT_RETURNED = "\n\nДепозит возвращён ⭐"
+    DEPOSIT_REFUND_PENDING = "\n\nВозврат депозита обрабатывается, он придёт в ближайшее время ⭐"
+    REFUND_DONE = "⭐ Мы вернули депозит {stars} ⭐ за запись:\n\n{booking}"
 
     MY_EMPTY = "У вас нет предстоящих записей."
     MY_LIST = "Ваши записи:\n\n{items}\n\nЧтобы отменить, нажмите на запись ниже."
+    CANCEL_ASK = "Отменить запись?\n\n{booking}"
+    CANCEL_ASK_REFUND = "\n\nДепозит {stars} ⭐ вернётся."
+    CANCEL_ASK_NO_REFUND = "\n\nДо визита меньше 24 часов, поэтому депозит {stars} ⭐ не вернётся."
     CANCELLED = "Запись отменена."
     CANT_CANCEL = "Эту запись уже нельзя отменить"
 
@@ -160,10 +193,19 @@ class Ru:
     CLIENT_CANCELLED_BY_ADMIN = (
         "❌ Мастер отменил вашу запись\n\n{booking}\n\nЗапишитесь на другое время 🙏"
     )
+    ADMIN_REFUND_FAILED = (
+        "⚠️ Не удалось вернуть клиенту {client} депозит {stars} ⭐:\n\n{booking}\n\n"
+        "Бот будет пробовать снова сам."
+    )
+    ADMIN_EXTRA_REFUND_FAILED = (
+        "⚠️ Клиент {client} оплатил запись дважды, и второй платёж {stars} ⭐ вернуть "
+        "автоматически не удалось:\n\n{booking}\n\nID платежа: <code>{charge}</code>"
+    )
 
     # --- Admin panel ---
     ADMIN_MENU = "⚙️ Панель мастера"
     ADMIN_NO_BOOKINGS = "Записей нет."
+    HOLD_MARK = "⏳ ждёт оплаты"
     ADMIN_SERVICES = "Услуги:\n\n{items}\n\nНажмите 🗑, чтобы скрыть услугу."
     ADMIN_ASK_NAME = "Название новой услуги? (/cancel — отмена)"
     ADMIN_ASK_DURATION = "Длительность в минутах, кратно 30 (например, 60):"
@@ -202,7 +244,7 @@ class En(Ru):
     BOT_DESCRIPTION = (
         "📅 SlotBook — online booking for appointments.\n\n• pick a service, a day "
         "and a free time\n• get reminders a day and 2 hours before the visit\n• "
-        "cancel in one tap\n\nFor the master: a panel with bookings, services, "
+        "cancel in a couple of taps\n\nFor the master: a panel with bookings, services, "
         "working hours and prepayment in Telegram Stars.\n\nPress Start to book 👇"
     )
     WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -247,6 +289,8 @@ class En(Ru):
     BTN_DEPOSIT = "⭐ Prepayment"
     BTN_ADMIN_BACK = "◀️ Master panel"
     BTN_ADD_SERVICE = "➕ Add a service"
+    BTN_CANCEL_YES = "❌ Yes, cancel"
+    BTN_KEEP = "◀️ No, keep it"
 
     CMD_START = "Book an appointment"
     CMD_PAYSUPPORT = "Payment questions"
@@ -277,6 +321,11 @@ class En(Ru):
         "You already have {limit} upcoming bookings, that's the maximum. Cancel one "
         "in “My bookings” to book again."
     )
+    HOLD_EXISTS = (
+        "You already have a booking awaiting the deposit. Pay for it or cancel it in "
+        "“My bookings” to pick another time."
+    )
+    REBOOK_COOLDOWN = "Your booking was just cancelled. You can book again in {minutes} min 🙏"
     BOOKED = (
         "✅ You're booked!\n\n{booking}\n\n"
         "I'll remind you a day and 2 hours before the visit. "
@@ -284,6 +333,7 @@ class En(Ru):
     )
 
     DEPOSIT_PAID = "⭐ Deposit of {stars} paid"
+    DEPOSIT_AWAITED = "⏳ Awaiting the {stars} ⭐ deposit"
     PAY_REQUIRED = (
         "⏳ Almost done! The time is held for you for {minutes} min.\n\n{booking}\n\n"
         "To confirm the booking, pay a <b>{stars} ⭐</b> deposit in the message below. "
@@ -300,20 +350,40 @@ class En(Ru):
         "The payment arrived after the hold had been released, so we refunded your Stars. "
         "Please book again."
     )
-    PAYSUPPORT = (
-        "For payment questions, write to the master in this chat or press /start → "
-        "“My bookings”. The deposit is refunded automatically if you cancel at least 24 hours "
-        "before the visit or if the master cancels."
+    PAY_LATE_REFUND_PENDING = (
+        "The payment arrived after the hold had been released. We'll refund your Stars "
+        "shortly. Please book again."
     )
+    PAY_EXTRA_REFUNDED = "This booking is already paid, so we refunded the second payment ⭐"
+    PAY_EXTRA_REFUND_FAILED = (
+        "This booking is already paid. We couldn't refund the second payment automatically "
+        "and have let the master know."
+    )
+    PAYSUPPORT = (
+        "The deposit is refunded automatically if you cancel at least 24 hours before the "
+        "visit or if the master cancels. If a refund doesn't go through right away, the bot "
+        "retries it by itself. To see or cancel your bookings: /start → “My bookings”."
+    )
+    PAYSUPPORT_CONTACT = "\nFor payment questions, write to {contact}"
     CANCELLED_REFUNDED = "Booking cancelled, the deposit was refunded ⭐"
+    CANCELLED_REFUND_PENDING = (
+        "Booking cancelled. The deposit refund is being processed and will arrive shortly ⭐"
+    )
     CANCELLED_NO_REFUND = (
         "Booking cancelled. It's less than 24 hours before the visit, so the deposit "
         "isn't refunded."
     )
     DEPOSIT_RETURNED = "\n\nThe deposit was refunded ⭐"
+    DEPOSIT_REFUND_PENDING = "\n\nThe deposit refund is being processed and will arrive shortly ⭐"
+    REFUND_DONE = "⭐ We've refunded the {stars} ⭐ deposit for this booking:\n\n{booking}"
 
     MY_EMPTY = "You have no upcoming bookings."
     MY_LIST = "Your bookings:\n\n{items}\n\nTo cancel, tap a booking below."
+    CANCEL_ASK = "Cancel this booking?\n\n{booking}"
+    CANCEL_ASK_REFUND = "\n\nThe {stars} ⭐ deposit will be refunded."
+    CANCEL_ASK_NO_REFUND = (
+        "\n\nIt's less than 24 hours before the visit, so the {stars} ⭐ deposit won't be refunded."
+    )
     CANCELLED = "Booking cancelled."
     CANT_CANCEL = "This booking can no longer be cancelled"
 
@@ -325,9 +395,18 @@ class En(Ru):
     CLIENT_CANCELLED_BY_ADMIN = (
         "❌ The master cancelled your booking\n\n{booking}\n\nPlease book another time 🙏"
     )
+    ADMIN_REFUND_FAILED = (
+        "⚠️ Couldn't refund the {stars} ⭐ deposit to {client}:\n\n{booking}\n\n"
+        "The bot will keep trying by itself."
+    )
+    ADMIN_EXTRA_REFUND_FAILED = (
+        "⚠️ {client} paid twice for one booking, and the second payment of {stars} ⭐ "
+        "couldn't be refunded automatically:\n\n{booking}\n\nPayment ID: <code>{charge}</code>"
+    )
 
     ADMIN_MENU = "⚙️ Master panel"
     ADMIN_NO_BOOKINGS = "No bookings."
+    HOLD_MARK = "⏳ awaiting payment"
     ADMIN_SERVICES = "Services:\n\n{items}\n\nTap 🗑 to hide a service."
     ADMIN_ASK_NAME = "Name of the new service? (/cancel to abort)"
     ADMIN_ASK_DURATION = "Duration in minutes, a multiple of 30 (e.g. 60):"
@@ -366,7 +445,7 @@ class Uk(Ru):
     BOT_DESCRIPTION = (
         "📅 SlotBook — онлайн-запис до майстра.\n\n• оберіть послугу, день і вільний "
         "час\n• нагадаю про візит за день і за 2 години\n• скасувати запис можна в "
-        "один клік\n\nДля майстра: панель із записами, послугами, робочими годинами "
+        "пару натискань\n\nДля майстра: панель із записами, послугами, робочими годинами "
         "та передоплатою в Telegram Stars.\n\nНатисніть «Старт», щоб записатися 👇"
     )
     WEEKDAYS = ("пн", "вт", "ср", "чт", "пт", "сб", "нд")
@@ -403,6 +482,8 @@ class Uk(Ru):
     BTN_DEPOSIT = "⭐ Передоплата"
     BTN_ADMIN_BACK = "◀️ До панелі майстра"
     BTN_ADD_SERVICE = "➕ Додати послугу"
+    BTN_CANCEL_YES = "❌ Так, скасувати"
+    BTN_KEEP = "◀️ Ні, залишити"
 
     CMD_START = "Записатися"
     CMD_PAYSUPPORT = "Питання щодо оплати"
@@ -433,12 +514,18 @@ class Uk(Ru):
         "У вас уже {limit} майбутні записи, це максимум. Скасуйте один у «Мої "
         "записи», щоб записатися знову."
     )
+    HOLD_EXISTS = (
+        "У вас уже є запис, який очікує оплати депозиту. Сплатіть його або скасуйте "
+        "в «Мої записи», щоб обрати інший час."
+    )
+    REBOOK_COOLDOWN = "Запис щойно скасовано. Записатися знову можна через {minutes} хв 🙏"
     BOOKED = (
         "✅ Ви записані!\n\n{booking}\n\n"
         "Я нагадаю за день і за 2 години до візиту. Скасувати запис можна в «Мої записи»."
     )
 
     DEPOSIT_PAID = "⭐ Депозит {stars} сплачено"
+    DEPOSIT_AWAITED = "⏳ Очікує оплати депозиту {stars} ⭐"
     PAY_REQUIRED = (
         "⏳ Майже готово! Час закріплено за вами на {minutes} хв.\n\n{booking}\n\n"
         "Щоб підтвердити запис, сплатіть депозит <b>{stars} ⭐</b> у повідомленні нижче. "
@@ -455,17 +542,35 @@ class Uk(Ru):
         "Оплата надійшла вже після того, як бронь знято, тому ми повернули Stars. "
         "Запишіться, будь ласка, ще раз."
     )
-    PAYSUPPORT = (
-        "З питань оплати напишіть майстру в цей чат або натисніть /start → «Мої записи». "
-        "Депозит повертається автоматично, якщо скасувати запис не пізніше ніж за 24 години "
-        "до візиту або якщо запис скасував майстер."
+    PAY_LATE_REFUND_PENDING = (
+        "Оплата надійшла вже після того, як бронь знято. Ми повернемо Stars найближчим "
+        "часом. Запишіться, будь ласка, ще раз."
     )
+    PAY_EXTRA_REFUNDED = "Цей запис уже сплачено, тому другий платіж ми повернули ⭐"
+    PAY_EXTRA_REFUND_FAILED = (
+        "Цей запис уже сплачено. Другий платіж не вдалося повернути автоматично, "
+        "ми повідомили про це майстра."
+    )
+    PAYSUPPORT = (
+        "Депозит повертається автоматично, якщо скасувати запис не пізніше ніж за 24 години "
+        "до візиту або якщо його скасував майстер. Якщо повернення не пройшло одразу, бот "
+        "повторить його сам. Переглянути й скасувати записи: /start → «Мої записи»."
+    )
+    PAYSUPPORT_CONTACT = "\nЗ питань оплати пишіть: {contact}"
     CANCELLED_REFUNDED = "Запис скасовано, депозит повернуто ⭐"
+    CANCELLED_REFUND_PENDING = (
+        "Запис скасовано. Повернення депозиту обробляється, він надійде найближчим часом ⭐"
+    )
     CANCELLED_NO_REFUND = "Запис скасовано. До візиту менше 24 годин, тому депозит не повертається."
     DEPOSIT_RETURNED = "\n\nДепозит повернуто ⭐"
+    DEPOSIT_REFUND_PENDING = "\n\nПовернення депозиту обробляється, він надійде найближчим часом ⭐"
+    REFUND_DONE = "⭐ Ми повернули депозит {stars} ⭐ за запис:\n\n{booking}"
 
     MY_EMPTY = "У вас немає майбутніх записів."
     MY_LIST = "Ваші записи:\n\n{items}\n\nЩоб скасувати, натисніть на запис нижче."
+    CANCEL_ASK = "Скасувати запис?\n\n{booking}"
+    CANCEL_ASK_REFUND = "\n\nДепозит {stars} ⭐ повернеться."
+    CANCEL_ASK_NO_REFUND = "\n\nДо візиту менше 24 годин, тому депозит {stars} ⭐ не повернеться."
     CANCELLED = "Запис скасовано."
     CANT_CANCEL = "Цей запис уже не можна скасувати"
 
@@ -477,9 +582,18 @@ class Uk(Ru):
     CLIENT_CANCELLED_BY_ADMIN = (
         "❌ Майстер скасував ваш запис\n\n{booking}\n\nЗапишіться, будь ласка, на інший час 🙏"
     )
+    ADMIN_REFUND_FAILED = (
+        "⚠️ Не вдалося повернути клієнту {client} депозит {stars} ⭐:\n\n{booking}\n\n"
+        "Бот пробуватиме знову сам."
+    )
+    ADMIN_EXTRA_REFUND_FAILED = (
+        "⚠️ Клієнт {client} сплатив запис двічі, і другий платіж {stars} ⭐ не вдалося "
+        "повернути автоматично:\n\n{booking}\n\nID платежу: <code>{charge}</code>"
+    )
 
     ADMIN_MENU = "⚙️ Панель майстра"
     ADMIN_NO_BOOKINGS = "Записів немає."
+    HOLD_MARK = "⏳ очікує оплати"
     ADMIN_SERVICES = "Послуги:\n\n{items}\n\nНатисніть 🗑, щоб приховати послугу."
     ADMIN_ASK_NAME = "Назва нової послуги? (/cancel — скасувати)"
     ADMIN_ASK_DURATION = "Тривалість у хвилинах, кратна 30 (наприклад, 60):"
@@ -516,7 +630,7 @@ class Pl(Ru):
     BOT_DESCRIPTION = (
         "📅 SlotBook — rezerwacja wizyt online.\n\n• wybierz usługę, dzień i wolną "
         "godzinę\n• przypomnę o wizycie dzień i 2 godziny wcześniej\n• wizytę "
-        "odwołasz jednym kliknięciem\n\nDla specjalisty: panel z wizytami, usługami, "
+        "odwołasz w kilka kliknięć\n\nDla specjalisty: panel z wizytami, usługami, "
         "godzinami pracy i przedpłatą w Telegram Stars.\n\nNaciśnij „Start”, aby się "
         "umówić 👇"
     )
@@ -562,6 +676,8 @@ class Pl(Ru):
     BTN_DEPOSIT = "⭐ Przedpłata"
     BTN_ADMIN_BACK = "◀️ Panel specjalisty"
     BTN_ADD_SERVICE = "➕ Dodaj usługę"
+    BTN_CANCEL_YES = "❌ Tak, odwołaj"
+    BTN_KEEP = "◀️ Nie, zostaw"
 
     CMD_START = "Umów wizytę"
     CMD_PAYSUPPORT = "Pytania o płatność"
@@ -592,12 +708,20 @@ class Pl(Ru):
         "Masz już {limit} nadchodzące wizyty, to maksimum. Odwołaj jedną w „Moje "
         "wizyty”, aby umówić się ponownie."
     )
+    HOLD_EXISTS = (
+        "Masz już wizytę, która czeka na zadatek. Opłać ją lub odwołaj w „Moje wizyty”, "
+        "aby wybrać inny termin."
+    )
+    REBOOK_COOLDOWN = (
+        "Wizyta została właśnie odwołana. Możesz umówić się ponownie za {minutes} min 🙏"
+    )
     BOOKED = (
         "✅ Wizyta umówiona!\n\n{booking}\n\n"
         "Przypomnę Ci dzień i 2 godziny przed wizytą. Odwołać możesz w „Moje wizyty”."
     )
 
     DEPOSIT_PAID = "⭐ Zadatek {stars} opłacony"
+    DEPOSIT_AWAITED = "⏳ Czeka na zadatek {stars} ⭐"
     PAY_REQUIRED = (
         "⏳ Prawie gotowe! Termin jest zarezerwowany dla Ciebie na {minutes} min.\n\n"
         "{booking}\n\n"
@@ -616,19 +740,37 @@ class Pl(Ru):
         "Płatność dotarła już po zwolnieniu rezerwacji, więc zwróciliśmy Twoje Stars. "
         "Umów się ponownie."
     )
-    PAYSUPPORT = (
-        "W sprawie płatności napisz do specjalisty w tym czacie lub naciśnij /start → "
-        "„Moje wizyty”. Zadatek jest zwracany automatycznie, jeśli odwołasz wizytę co najmniej "
-        "24 godziny wcześniej lub jeśli odwoła ją specjalista."
+    PAY_LATE_REFUND_PENDING = (
+        "Płatność dotarła już po zwolnieniu rezerwacji. Wkrótce zwrócimy Twoje Stars. "
+        "Umów się ponownie."
     )
+    PAY_EXTRA_REFUNDED = "Ta wizyta jest już opłacona, więc zwróciliśmy drugą płatność ⭐"
+    PAY_EXTRA_REFUND_FAILED = (
+        "Ta wizyta jest już opłacona. Nie udało się automatycznie zwrócić drugiej płatności, "
+        "więc powiadomiliśmy specjalistę."
+    )
+    PAYSUPPORT = (
+        "Zadatek jest zwracany automatycznie, jeśli odwołasz wizytę co najmniej 24 godziny "
+        "wcześniej lub jeśli odwoła ją specjalista. Jeśli zwrot nie przejdzie od razu, bot "
+        "sam spróbuje ponownie. Twoje wizyty i ich odwołanie: /start → „Moje wizyty”."
+    )
+    PAYSUPPORT_CONTACT = "\nW sprawie płatności napisz do: {contact}"
     CANCELLED_REFUNDED = "Wizyta odwołana, zadatek zwrócony ⭐"
+    CANCELLED_REFUND_PENDING = "Wizyta odwołana. Zwrot zadatku jest w toku i wkrótce dotrze ⭐"
     CANCELLED_NO_REFUND = (
         "Wizyta odwołana. Do wizyty zostało mniej niż 24 godziny, więc zadatek nie jest zwracany."
     )
     DEPOSIT_RETURNED = "\n\nZadatek został zwrócony ⭐"
+    DEPOSIT_REFUND_PENDING = "\n\nZwrot zadatku jest w toku i wkrótce dotrze ⭐"
+    REFUND_DONE = "⭐ Zwróciliśmy zadatek {stars} ⭐ za wizytę:\n\n{booking}"
 
     MY_EMPTY = "Nie masz nadchodzących wizyt."
     MY_LIST = "Twoje wizyty:\n\n{items}\n\nAby odwołać, naciśnij wizytę poniżej."
+    CANCEL_ASK = "Odwołać wizytę?\n\n{booking}"
+    CANCEL_ASK_REFUND = "\n\nZadatek {stars} ⭐ zostanie zwrócony."
+    CANCEL_ASK_NO_REFUND = (
+        "\n\nDo wizyty zostało mniej niż 24 godziny, więc zadatek {stars} ⭐ nie zostanie zwrócony."
+    )
     CANCELLED = "Wizyta odwołana."
     CANT_CANCEL = "Tej wizyty nie można już odwołać"
 
@@ -640,9 +782,18 @@ class Pl(Ru):
     CLIENT_CANCELLED_BY_ADMIN = (
         "❌ Specjalista odwołał Twoją wizytę\n\n{booking}\n\nUmów się na inny termin 🙏"
     )
+    ADMIN_REFUND_FAILED = (
+        "⚠️ Nie udało się zwrócić klientowi {client} zadatku {stars} ⭐:\n\n{booking}\n\n"
+        "Bot sam spróbuje ponownie."
+    )
+    ADMIN_EXTRA_REFUND_FAILED = (
+        "⚠️ Klient {client} opłacił wizytę dwa razy, a drugiej płatności {stars} ⭐ nie udało "
+        "się zwrócić automatycznie:\n\n{booking}\n\nID płatności: <code>{charge}</code>"
+    )
 
     ADMIN_MENU = "⚙️ Panel specjalisty"
     ADMIN_NO_BOOKINGS = "Brak wizyt."
+    HOLD_MARK = "⏳ czeka na płatność"
     ADMIN_SERVICES = "Usługi:\n\n{items}\n\nNaciśnij 🗑, aby ukryć usługę."
     ADMIN_ASK_NAME = "Nazwa nowej usługi? (/cancel — anuluj)"
     ADMIN_ASK_DURATION = "Czas trwania w minutach, wielokrotność 30 (np. 60):"
