@@ -253,10 +253,219 @@ def chatguard() -> Image.Image:
     return img
 
 
+# --- JobRadar: a radar sweep finding a "hot" job, with a play button at its center ---
+
+
+def jobradar(radius: float = 0.36) -> Image.Image:
+    img = gradient("#FF8A3D", "#C2185B")
+    cx, cy, r = S / 2, S / 2, S * radius
+
+    # Dish with rings and cross hairs
+    dish = layer()
+    d = ImageDraw.Draw(dish)
+    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill="#3A0A24")
+    line = round(S * 0.006)
+    for k in (1.0, 0.68, 0.36):
+        rr = r * k
+        d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), outline="#FF9F7A", width=line)
+    d.line((cx - r, cy, cx + r, cy), fill="#7A2A45", width=line)
+    d.line((cx, cy - r, cx, cy + r), fill="#7A2A45", width=line)
+
+    # The sweep: a wedge that fades out behind the beam
+    sweep = layer()
+    sd = ImageDraw.Draw(sweep)
+    beam = -50  # degrees, PIL angles go clockwise from 3 o'clock
+    steps = 30
+    for i in range(steps):
+        alpha = round(150 * (1 - i / steps))
+        sd.pieslice(
+            (cx - r, cy - r, cx + r, cy + r),
+            beam - (i + 1) * 2,
+            beam - i * 2,
+            fill=(255, 196, 120, alpha),
+        )
+    dish.alpha_composite(sweep)
+    end = (cx + r * math.cos(math.radians(beam)), cy + r * math.sin(math.radians(beam)))
+    d.line((cx, cy, *end), fill="#FFE2B0", width=round(S * 0.01))
+
+    # A hot blip the beam just found, and a fainter older one
+    def blip(angle: float, dist: float, size: float, color, glow: int):
+        bx = cx + r * dist * math.cos(math.radians(angle))
+        by = cy + r * dist * math.sin(math.radians(angle))
+        halo = layer()
+        ImageDraw.Draw(halo).ellipse(
+            (bx - size * 2.2, by - size * 2.2, bx + size * 2.2, by + size * 2.2),
+            fill=(255, 214, 102, glow),
+        )
+        dish.alpha_composite(halo.filter(ImageFilter.GaussianBlur(size * 0.8)))
+        ImageDraw.Draw(dish).ellipse((bx - size, by - size, bx + size, by + size), fill=color)
+
+    blip(-62, 0.72, S * 0.03, "#FFF3C4", 220)
+    blip(150, 0.55, S * 0.018, "#FFB37A", 90)
+
+    # Play button in the middle: it is video work the radar looks for
+    pr = S * 0.1
+    pd = ImageDraw.Draw(dish)
+    pd.ellipse((cx - pr, cy - pr, cx + pr, cy + pr), fill="#FFFFFF")
+    t = pr * 0.5
+    pd.polygon(
+        [(cx - t * 0.7, cy - t), (cx - t * 0.7, cy + t), (cx + t * 1.05, cy)], fill="#E0245E"
+    )
+
+    img.alpha_composite(shadow(dish, (0, round(S * 0.02)), round(S * 0.03), 130))
+    img.alpha_composite(dish)
+    ImageDraw.Draw(img).ellipse(
+        (cx - r, cy - r, cx + r, cy + r), outline="#FFD1B8", width=round(S * 0.012)
+    )
+    return img
+
+
+# --- JobRadar mascot: a job application form that has become a monster ---
+
+INK = "#2B1A1A"
+PAPER = "#F3EEDC"
+FANG = "#FFFDF2"
+
+
+def monster_arms() -> Image.Image:
+    """Skinny clawed arms reaching out from behind the sheet."""
+    arms = layer()
+    ad = ImageDraw.Draw(arms)
+    arm_w = round(S * 0.022)
+    claw = S * 0.012
+    for side in (-1, 1):
+
+        def p(x: float, y: float, side: int = side) -> tuple[float, float]:
+            return (S / 2 + side * S * x, S * y)
+
+        elbow, wrist = p(0.36, 0.6), p(0.4, 0.4)
+        ad.line([p(0.2, 0.62), elbow, wrist], fill="#C9C0A6", width=arm_w, joint="curve")
+        for dx, dy in ((-0.05, -0.08), (0.0, -0.1), (0.05, -0.07)):
+            tip = p(0.4 + dx, 0.4 + dy)
+            ad.line([wrist, tip], fill="#C9C0A6", width=round(arm_w * 0.7))
+            ad.ellipse((tip[0] - claw, tip[1] - claw, tip[0] + claw, tip[1] + claw), fill="#E23B3B")
+    return arms
+
+
+def monster_eyes(paper: Image.Image) -> None:
+    """Angry glowing eyes with slit pupils, form lines bent into brows."""
+    cx, eye_y, eye_dx, ew, eh = S / 2, S * 0.385, S * 0.11, S * 0.075, S * 0.055
+    glow = layer()
+    for side in (-1, 1):
+        ex = cx + side * eye_dx
+        ImageDraw.Draw(glow).ellipse(
+            (ex - ew * 1.6, eye_y - eh * 1.8, ex + ew * 1.6, eye_y + eh * 1.8),
+            fill=(255, 60, 30, 150),
+        )
+    paper.alpha_composite(glow.filter(ImageFilter.GaussianBlur(S * 0.02)))
+    d = ImageDraw.Draw(paper)
+    for side in (-1, 1):
+        ex = cx + side * eye_dx
+        inner, outer = ex - side * ew * 1.3, ex + side * ew * 1.3
+        # The brow cuts the top of the eye at an angle, towards the nose
+        below_brow = Image.new("L", (S, S), 0)
+        ImageDraw.Draw(below_brow).polygon(
+            [(inner, eye_y + eh * 0.1), (outer, eye_y - eh * 0.9), (outer, S), (inner, S)],
+            fill=255,
+        )
+        eye = layer()
+        ed = ImageDraw.Draw(eye)
+        ed.ellipse((ex - ew, eye_y - eh, ex + ew, eye_y + eh), fill="#FFD23F")
+        ed.ellipse((ex - ew * 0.18, eye_y - eh * 0.85, ex + ew * 0.18, eye_y + eh * 0.85), fill=INK)
+        paper.alpha_composite(Image.composite(eye, layer(), below_brow))
+        d.line(
+            [(inner, eye_y + eh * 0.1), (outer, eye_y - eh * 0.9)],
+            fill=INK,
+            width=round(S * 0.022),
+        )
+
+
+def monster_mouth(d: ImageDraw.ImageDraw) -> None:
+    """A wide grin full of fangs, the corner ones longest."""
+    cx = S / 2
+    mx0, mx1, my0, my1 = S * 0.31, S * 0.69, S * 0.5, S * 0.7
+    mouth = bezier(
+        (mx0, my0), (cx - S * 0.1, my0 + S * 0.03), (cx + S * 0.1, my0 + S * 0.03), (mx1, my0)
+    )
+    mouth += bezier((mx1, my0), (mx1, my1), (mx0, my1), (mx0, my0))
+    d.polygon(mouth, fill="#5E0B17")
+    d.line([*mouth, mouth[0]], fill=INK, width=round(S * 0.012), joint="curve")
+    fangs = 6
+    span = (mx1 - mx0) * 0.84
+    left = mx0 + (mx1 - mx0) * 0.08
+    top = my0 + S * 0.022
+    for i in range(fangs):
+        fx, fw = left + span * i / fangs, span / fangs
+        long = S * (0.07 if i in (0, fangs - 1) else 0.045)
+        d.polygon([(fx, top), (fx + fw, top), (fx + fw / 2, top + long)], fill=FANG)
+    bottom = my0 + S * 0.135
+    for i in range(fangs - 2):
+        fx = left + span * 0.1 + span * 0.8 * i / (fangs - 2)
+        fw = span * 0.8 / (fangs - 2)
+        d.polygon([(fx, bottom), (fx + fw, bottom), (fx + fw / 2, bottom - S * 0.04)], fill=FANG)
+
+
+def job_monster() -> Image.Image:
+    img = gradient("#4A0D24", "#0D0410")
+    cx = S / 2
+
+    # Faint radar rings behind it, so it still reads as "JobRadar"
+    rings = layer()
+    rd = ImageDraw.Draw(rings)
+    for k in (0.46, 0.36, 0.26):
+        rr = S * k
+        rd.ellipse(
+            (cx - rr, S / 2 - rr, cx + rr, S / 2 + rr),
+            outline=(255, 90, 90, 60),
+            width=round(S * 0.005),
+        )
+    img.alpha_composite(rings)
+    img.alpha_composite(monster_arms())
+
+    # The sheet: folded top corner, torn bottom edge
+    paper = layer()
+    d = ImageDraw.Draw(paper)
+    x0, y0, x1, y1 = S * 0.25, S * 0.17, S * 0.75, S * 0.83
+    fold = S * 0.08
+    torn = [(x1, y1)]
+    teeth = 9
+    for i in range(1, teeth + 1):
+        x = x1 - (x1 - x0) * i / teeth
+        torn.append((x + (x1 - x0) / teeth / 2, y1 + (S * 0.03 if i % 2 else 0)))
+        torn.append((x, y1))
+    d.polygon([(x0, y0), (x1 - fold, y0), (x1, y0 + fold), *torn], fill=PAPER)
+    d.polygon([(x1 - fold, y0), (x1 - fold, y0 + fold), (x1, y0 + fold)], fill="#C9C0A6")
+    d.text(
+        (cx - S * 0.03, y0 + S * 0.055),
+        "JOB APPLICATION",
+        font=bold_font(round(S * 0.038)),
+        fill=INK,
+        anchor="mm",
+    )
+    d.line((x0 + S * 0.04, y0 + S * 0.09, x1 - S * 0.1, y0 + S * 0.09), fill=INK, width=8)
+    monster_eyes(paper)
+    d = ImageDraw.Draw(paper)
+    monster_mouth(d)
+
+    # A form field below the mouth: a checkbox nobody wants to tick
+    fy = S * 0.755
+    d.rectangle(
+        (x0 + S * 0.05, fy - S * 0.018, x0 + S * 0.086, fy + S * 0.018), outline=INK, width=7
+    )
+    d.line((x0 + S * 0.11, fy, x1 - S * 0.06, fy), fill="#9C9283", width=7)
+
+    paper = paper.rotate(-5, center=(cx, S / 2), resample=Image.BICUBIC)
+    img.alpha_composite(shadow(paper, (round(S * 0.012), round(S * 0.025)), round(S * 0.03), 160))
+    img.alpha_composite(paper)
+    return img
+
+
 if __name__ == "__main__":
     for name, draw in (
         ("splitmates", splitmates),
         ("slotbook", slotbook),
         ("chatguard", chatguard),
+        ("jobradar", jobradar),
+        ("jobradar_monster", job_monster),
     ):
         print("saved", save(draw(), name))
