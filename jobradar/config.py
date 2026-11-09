@@ -7,6 +7,18 @@ from pydantic import Field, SecretStr, field_validator
 from jobradar.mail import MailConfig
 from shared.config import CommonSettings, parse_ids
 
+# Job sites trusted to write to the bot's own address (a sender's subdomains count too, e.g.
+# mail.pracuj.pl); letters from anyone else are skipped. Which ones the box is subscribed to
+# is the owner's choice: many sites' terms forbid passing their offers on to other people.
+MAIL_SENDERS = (
+    *("work.ua", "jobs.ua", "olx.ua"),
+    *("pracuj.pl", "theprotocol.it", "justjoin.it", "rocketjobs.pl", "nofluffjobs.com"),
+    *("praca.pl", "olx.pl", "aplikuj.pl", "bulldogjob.pl", "useme.com"),
+    *("linkedin.com", "indeed.com", "indeedemail.com", "indeedmail.com", "jooble.org"),
+    *("peopleperhour.com", "freelancer.com", "twine.net", "workingnomads.com"),
+    *("motionographer.com", "animatedjobs.com"),
+)
+
 
 @dataclass(frozen=True)
 class Plan:
@@ -59,6 +71,8 @@ class JobRadarSettings(CommonSettings):
     mail_address: str = Field("", validation_alias="JOBRADAR_MAIL_ADDRESS")
     mail_password: SecretStr = Field(SecretStr(""), validation_alias="JOBRADAR_MAIL_PASSWORD")
     mail_imap_host: str = Field("imap.gmail.com", validation_alias="JOBRADAR_MAIL_IMAP_HOST")
+    # Sites whose alerts to the box's own address go to everyone; empty = MAIL_SENDERS
+    mail_senders_raw: str = Field("", validation_alias="JOBRADAR_MAIL_SENDERS")
     # Personal API token from your Freelancehunt profile; empty = Freelancehunt is off
     freelancehunt_token: SecretStr = Field(SecretStr(""), validation_alias="FREELANCEHUNT_TOKEN")
     # Public Telegram channels with job posts, without @, comma-separated
@@ -86,9 +100,17 @@ class JobRadarSettings(CommonSettings):
         return [c.strip().lstrip("@").lower() for c in self.channels_raw.split(",") if c.strip()]
 
     @property
+    def mail_senders(self) -> tuple[str, ...]:
+        listed = [s.strip().lower().lstrip("@") for s in self.mail_senders_raw.split(",")]
+        return tuple(dict.fromkeys(s for s in listed if s)) or MAIL_SENDERS
+
+    @property
     def mail(self) -> MailConfig:
         return MailConfig(
-            self.mail_imap_host, self.mail_address.strip(), self.mail_password.get_secret_value()
+            self.mail_imap_host,
+            self.mail_address.strip(),
+            self.mail_password.get_secret_value(),
+            self.mail_senders,
         )
 
     @property

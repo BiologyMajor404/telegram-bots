@@ -80,6 +80,7 @@ class Ru:
         "За месяц: ${month} из ${budget}\n"
         "Платных подписчиков: {pros}"
     )
+    STATUS_MAIL = "\nОбщие рассылки сегодня: писем {letters}, вакансий в них {jobs}"
     NEVER = "ещё не было"
     LIMIT_REACHED = (
         "Это {cards}-я вакансия за сегодня, дневной лимит. Остальные придут завтра, "
@@ -214,6 +215,23 @@ class Ru:
         "Код подтверждения: <code>{code}</code>\n"
         "Или откройте ссылку: {link}"
     )
+    MAIL_SHARED = (
+        "\n\nС {sites} бот уже получает рассылки сам и проверяет их для всех. Свои "
+        "подписки там нужны, только если вы ищете что-то особенное."
+    )
+    MAIL_SITE_CONFIRM = (
+        "📬 {site} просит подтвердить подписку: «{subject}»\n\n"
+        "Откройте ссылку, чтобы подтвердить:\n{links}"
+    )
+    MAIL_UNLISTED = (
+        "📭 Письмо от {site} на общий адрес бота пропущено: «{subject}»\n\n"
+        "Этого сайта нет в списке JOBRADAR_MAIL_SENDERS. Если это ваша рассылка, "
+        "добавьте его туда в .env и перезапустите бота."
+    )
+    MAIL_UNVERIFIED = (
+        "📭 Письмо от {site} на общий адрес бота пропущено: «{subject}»\n\n"
+        "Gmail не подтвердил, что оно правда от этого сайта: такое письмо может быть подделкой."
+    )
 
     # --- Pro ---
     PRO_OFFER = (
@@ -338,6 +356,7 @@ class En(Ru):
         "This month: ${month} of ${budget}\n"
         "Paying subscribers: {pros}"
     )
+    STATUS_MAIL = "\nShared job alerts today: {letters} letters, {jobs} jobs in them"
     NEVER = "not yet"
     LIMIT_REACHED = (
         "That's job number {cards} today, the daily limit. The rest will come tomorrow "
@@ -469,6 +488,23 @@ class En(Ru):
         "Confirmation code: <code>{code}</code>\n"
         "Or open the link: {link}"
     )
+    MAIL_SHARED = (
+        "\n\nThe bot already gets job alerts from {sites} itself and checks them for "
+        "everyone. Your own alerts there are only needed if you look for something special."
+    )
+    MAIL_SITE_CONFIRM = (
+        "📬 {site} asks to confirm the subscription: “{subject}”\n\n"
+        "Open the link to confirm:\n{links}"
+    )
+    MAIL_UNLISTED = (
+        "📭 A letter from {site} to the bot's shared address was skipped: “{subject}”\n\n"
+        "This site isn't in JOBRADAR_MAIL_SENDERS. If it's your alert, add it there in .env "
+        "and restart the bot."
+    )
+    MAIL_UNVERIFIED = (
+        "📭 A letter from {site} to the bot's shared address was skipped: “{subject}”\n\n"
+        "Gmail didn't confirm it really comes from this site: it may be a fake."
+    )
 
     PRO_OFFER = (
         "⭐ <b>JobRadar Pro</b>\n\n"
@@ -590,6 +626,7 @@ class Uk(Ru):
         "За місяць: ${month} з ${budget}\n"
         "Платних підписників: {pros}"
     )
+    STATUS_MAIL = "\nСпільні розсилки сьогодні: листів {letters}, вакансій у них {jobs}"
     NEVER = "ще не було"
     LIMIT_REACHED = (
         "Це {cards}-та вакансія за сьогодні, денний ліміт. Решта прийде завтра, "
@@ -724,6 +761,23 @@ class Uk(Ru):
         "Код підтвердження: <code>{code}</code>\n"
         "Або відкрийте посилання: {link}"
     )
+    MAIL_SHARED = (
+        "\n\nЗ {sites} бот уже отримує розсилки сам і перевіряє їх для всіх. Власні "
+        "підписки там потрібні, лише якщо ви шукаєте щось особливе."
+    )
+    MAIL_SITE_CONFIRM = (
+        "📬 {site} просить підтвердити підписку: «{subject}»\n\n"
+        "Відкрийте посилання, щоб підтвердити:\n{links}"
+    )
+    MAIL_UNLISTED = (
+        "📭 Лист від {site} на спільну адресу бота пропущено: «{subject}»\n\n"
+        "Цього сайту немає у списку JOBRADAR_MAIL_SENDERS. Якщо це ваша розсилка, "
+        "додайте його туди в .env і перезапустіть бота."
+    )
+    MAIL_UNVERIFIED = (
+        "📭 Лист від {site} на спільну адресу бота пропущено: «{subject}»\n\n"
+        "Gmail не підтвердив, що він справді від цього сайту: такий лист може бути підробкою."
+    )
 
     PRO_OFFER = (
         "⭐ <b>JobRadar Pro</b>\n\n"
@@ -845,6 +899,7 @@ class Pl(Ru):
         "W tym miesiącu: ${month} z ${budget}\n"
         "Płacący subskrybenci: {pros}"
     )
+    STATUS_MAIL = "\nWspólne powiadomienia dzisiaj: listów {letters}, ofert w nich {jobs}"
     NEVER = "jeszcze nie było"
     LIMIT_REACHED = (
         "To {cards}. oferta dzisiaj, dzienny limit. Reszta przyjdzie jutro, "
@@ -976,6 +1031,23 @@ class Pl(Ru):
         "📬 Gmail prosi o potwierdzenie przekazywania listów na twój adres bota.\n\n"
         "Kod potwierdzenia: <code>{code}</code>\n"
         "Lub otwórz link: {link}"
+    )
+    MAIL_SHARED = (
+        "\n\nPowiadomienia z {sites} bot już odbiera sam i sprawdza dla wszystkich. Własne "
+        "subskrypcje są tam potrzebne tylko wtedy, gdy szukasz czegoś szczególnego."
+    )
+    MAIL_SITE_CONFIRM = (
+        "📬 {site} prosi o potwierdzenie subskrypcji: „{subject}”\n\n"
+        "Otwórz link, aby potwierdzić:\n{links}"
+    )
+    MAIL_UNLISTED = (
+        "📭 List od {site} na wspólny adres bota został pominięty: „{subject}”\n\n"
+        "Tej strony nie ma na liście JOBRADAR_MAIL_SENDERS. Jeśli to twoje powiadomienia, "
+        "dodaj ją tam w .env i uruchom bota ponownie."
+    )
+    MAIL_UNVERIFIED = (
+        "📭 List od {site} na wspólny adres bota został pominięty: „{subject}”\n\n"
+        "Gmail nie potwierdził, że naprawdę pochodzi z tej strony: może być podróbką."
     )
 
     PRO_OFFER = (

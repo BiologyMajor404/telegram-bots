@@ -8,8 +8,9 @@ import contextlib
 import hashlib
 import imaplib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from enum import Enum, auto
 from html import escape
 from zoneinfo import ZoneInfo
@@ -23,12 +24,20 @@ from jobradar.ai import Analysis, Analyzer
 from jobradar.card import card
 from jobradar.filters import mismatch
 from jobradar.keyboards import open_job
-from jobradar.mail import Letter, MailConfig, fetch_unseen, gmail_confirmation, read_letter
+from jobradar.mail import (
+    SHARED_FEED,
+    Letter,
+    MailConfig,
+    confirmation_links,
+    fetch_unseen,
+    gmail_confirmation,
+    read_letter,
+)
 from jobradar.models import Subscriber, UserDay, UserSearch
 from jobradar.plans import Access, recipients, within_plans
 from jobradar.relevance import MAX_AGE, candidates, searches_in
-from jobradar.searches import board_queries, normalize
-from jobradar.texts import TEXTS
+from jobradar.searches import board_queries, matching, normalize
+from jobradar.texts import TEXTS, Ru
 from shared.notify import safe_send
 
 log = logging.getLogger(__name__)
@@ -40,6 +49,22 @@ MIN_GAP = 60
 # Runs in a row the AI may fail on one post before it is put aside for good
 AI_TRIES = 3
 UNREAD_MAX = 200  # letters kept for later when their reader's checks are used up
+SKIPPED_MAX = 1000  # senders the owners were told about; past it the list starts over
+# A site whose alerts reached the shared address this lately counts as covered in /mail
+SITE_FRESH = timedelta(days=7)
+
+
+def confirm_text(t: Ru, site: str, letter: Letter, links: list[str]) -> str:
+    return t.MAIL_SITE_CONFIRM.format(
+        site=escape(site), subject=escape(letter.subject), links="\n".join(map(escape, links))
+    )
+
+
+def mentions(letter: Letter, searches: dict[str, list[str]]) -> bool:
+    """Whether a letter names any of the searches: one that doesn't would give no cards, so
+    the AI isn't paid to read it (a broad alert, e.g. every remote job, mostly doesn't)."""
+    anchors = " ".join(anchor for _, anchor in letter.links)
+    return bool(matching(letter.subject, f"{letter.text}\n{anchors}", searches))
 
 
 class Outcome(Enum):
@@ -79,6 +104,15 @@ class RunStats:
     fresh: int = 0
 
 
+@dataclass
+class MailDay:
+    """Letters to the shared address read on one day, and the jobs found in them."""
+
+    day: date | None = None
+    letters: int = 0
+    jobs: int = 0
+
+
 class Radar:
     def __init__(
         self,
@@ -98,7 +132,7 @@ class Radar:
         self.channels = channels
         self.freelancehunt_token = freelancehunt_token
         self.mail = mail or MailConfig("", "", "")
-        self.global_keys = sources.global_keys(channels)
+        self.global_keys = sources.global_keys(channels) | {SHARED_FEED}
         self.access = access
         self.ai_daily_limit = ai_daily_limit
         self.tz = tz
@@ -107,6 +141,9 @@ class Radar:
         # A letter is read from the box only once: what it gave waits here until checked
         self.letters: list[sources.RawJob] = []
         self.unread: list[Letter] = []  # letters whose reader had no checks left
+        self.skipped: set[str] = set()  # senders to the shared address the owners know of
+        self.mail_day = MailDay()
+        self.sites: dict[str, datetime] = {}  # site -> its last alert to the shared address
         self.failures: dict[tuple[str, str], int] = {}  # job -> AI failures so far
         self.turn = 0  # runs so far: job board queries take turns
         self._wake = asyncio.Event()
@@ -117,6 +154,15 @@ class Radar:
     def days_in_month(self) -> int:
         today = self.today()
         return calendar.monthrange(today.year, today.month)[1]
+
+    def shared_today(self) -> MailDay:
+        if self.mail_day.day != self.today():
+            self.mail_day = MailDay(self.today())
+        return self.mail_day
+
+    def shared_sites(self, now: datetime) -> list[str]:
+        """Sites whose alerts come to the shared address: nobody needs to forward those."""
+        return sorted(site for site, at in self.sites.items() if now - at <= SITE_FRESH)
 
     async def monthly_usd(self) -> float:
         async with self.session_factory() as session:
@@ -176,7 +222,8 @@ class Radar:
         if self.mail.enabled:
             self.letters += await self._read_mail(subs, now)
         for job in self.letters:  # a letter is its addressee's own source
-            own.setdefault(int(job.feed.removeprefix("mail:")), set()).add(job.feed)
+            if job.feed != SHARED_FEED:
+                own.setdefault(int(job.feed.removeprefix("mail:")), set()).add(job.feed)
         pairs = [key.split(":", 1) for keys in own.values() for key in keys]
         queries = board_queries(self.wanted.keywords, self.turn)
         self.turn += 1
@@ -243,7 +290,8 @@ class Radar:
             return await repo.usage(session, self.today())
 
     async def _read_mail(self, subs: list[Subscriber], now: datetime) -> list[sources.RawJob]:
-        """Jobs from the job alert emails subscribers sent to their personal addresses."""
+        """Jobs from the job alert emails: those subscribers sent to their personal addresses
+        and those the owners subscribed the box itself to."""
         letters, self.unread = self.unread, []
         try:
             raws = await asyncio.to_thread(fetch_unseen, self.mail)
@@ -252,13 +300,10 @@ class Radar:
             raws = []
         for raw in raws:
             try:
-                letter = await asyncio.to_thread(read_letter, raw)
+                letters.append(await asyncio.to_thread(read_letter, raw))
             except Exception:
                 # The box already marked it read: one odd letter mustn't cost the others
                 log.exception("A letter couldn't be read")
-                continue
-            if letter is not None:
-                letters.append(letter)
         active = {s.id: s for s in subs}
         jobs: list[sources.RawJob] = []
         for letter in letters:
@@ -271,29 +316,122 @@ class Radar:
     async def _letter(
         self, letter: Letter, active: dict[int, Subscriber], now: datetime
     ) -> list[sources.RawJob]:
+        if letter.token is None:
+            found = await self._shared_letter(letter, active, now)
+        else:
+            found = await self._personal_letter(letter, active, now)
+        if found is None and now - letter.received <= MAX_AGE and len(self.unread) < UNREAD_MAX:
+            self.unread.append(letter)  # read it once the checks or the budget allow
+        return found or []
+
+    async def _personal_letter(
+        self, letter: Letter, active: dict[int, Subscriber], now: datetime
+    ) -> list[sources.RawJob] | None:
+        """The jobs in a letter to a subscriber's own address; None if it waits for later."""
         async with self.session_factory() as session:
             owner = await repo.by_mail_token(session, letter.token)
         if owner is None:
             return []  # nobody has this address
+        t = TEXTS[owner.lang]
         if confirmation := gmail_confirmation(letter):
             # Gmail asks to confirm forwarding before it sends anything on
             code, link = confirmation
-            t = TEXTS[owner.lang]
             text = t.MAIL_CONFIRM.format(code=escape(code), link=escape(link))
             await safe_send(self.bot, owner.id, text)
+            return []
+        if links := confirmation_links(letter):
+            # The address was given to a site directly: only its owner can confirm it
+            text = confirm_text(t, letter.sender, letter, links)
+            await safe_send(self.bot, owner.id, text, disable_web_page_preview=True)
             return []
         sub = active.get(owner.id)
         if sub is None:
             return []  # paused or searching for nothing
-        found = await self._letter_jobs(sub, letter, now)
-        if found is None and now - letter.received <= MAX_AGE and len(self.unread) < UNREAD_MAX:
-            self.unread.append(letter)  # read it once the checks or the budget allow
-        return found or []
+        return await self._letter_jobs(sub, letter, now)
+
+    async def _shared_letter(
+        self, letter: Letter, active: dict[int, Subscriber], now: datetime
+    ) -> list[sources.RawJob] | None:
+        """The jobs in a letter to the box's own address, for everyone: alerts the owners
+        subscribed the box to. Anyone can write to the box, so only the listed sites count,
+        and only when Gmail checked the letter really comes from there. None: it waits."""
+        if confirmation := gmail_confirmation(letter):
+            # An owner forwards their own alerts to the box: Gmail asks to confirm that first
+            code, link = confirmation
+            await self._tell_owners(
+                lambda t: t.MAIL_CONFIRM.format(code=escape(code), link=escape(link))
+            )
+            return []
+        site = self.mail.site(letter.sender)
+        if site is None or not letter.verified:
+            await self._skipped(letter, site)
+            return []
+        if links := confirmation_links(letter):
+            await self._tell_owners(lambda t: confirm_text(t, site, letter, links))
+            return []
+        self.sites[site] = now
+        if mentions(letter, self.wanted.keywords):
+            if not await self.take_check(any(self.access.is_pro(s, now) for s in active.values())):
+                return None
+            found, cost = await self.analyzer.read_letter(letter.subject, letter.text, letter.links)
+            async with self.session_factory() as session:
+                await repo.add_ai_cost(session, self.today(), cost)
+        else:
+            found = []
+        day = self.shared_today()
+        day.letters += 1
+        day.jobs += len(found or [])
+        return [
+            sources.RawJob(
+                source=f"📬 {site}",
+                external_id=hashlib.sha1(j.url.encode()).hexdigest(),
+                title=j.title,
+                text=j.details,
+                url=j.url,
+                published=letter.received,
+                feed=SHARED_FEED,
+            )
+            for j in found or []
+        ]
+
+    async def _skipped(self, letter: Letter, site: str | None) -> None:
+        """Tell the owners, once per sender, why a letter to the shared address wasn't read:
+        a site they subscribed the box to may be missing from the list. A letter from an
+        unlisted site Gmail can't vouch for is most likely spam: that one is only logged."""
+        log.info(
+            "Skipped a letter from %s to the shared address (listed: %s, verified: %s)",
+            letter.sender,
+            site is not None,
+            letter.verified,
+        )
+        if (site is None and not letter.verified) or letter.sender in self.skipped:
+            return
+        if len(self.skipped) >= SKIPPED_MAX:
+            self.skipped.clear()
+        self.skipped.add(letter.sender)
+        await self._tell_owners(
+            lambda t: (t.MAIL_UNVERIFIED if site else t.MAIL_UNLISTED).format(
+                site=escape(letter.sender), subject=escape(letter.subject)
+            )
+        )
+
+    async def _tell_owners(self, text: Callable[[Ru], str]) -> None:
+        """A note to every owner who has started the bot, in their language."""
+        for owner_id in sorted(self.access.admin_ids):
+            async with self.session_factory() as session:
+                owner = await repo.get_subscriber(session, owner_id)
+            if owner is not None:
+                await safe_send(
+                    self.bot, owner_id, text(TEXTS[owner.lang]), disable_web_page_preview=True
+                )
 
     async def _letter_jobs(
         self, sub: Subscriber, letter: Letter, now: datetime
     ) -> list[sources.RawJob] | None:
         """The jobs in one letter; None if it can't be read today (no checks left)."""
+        own = self.wanted.labels.get(sub.id, {})
+        if not mentions(letter, {k: v for k, v in self.wanted.keywords.items() if k in own}):
+            return []  # nothing in it for this reader: their checks aren't spent on it
         async with self.session_factory() as session:
             day = (await repo.usage(session, self.today())).get(sub.id)
         if (day.checks if day else 0) >= self.access.plan(sub, now).own_checks:

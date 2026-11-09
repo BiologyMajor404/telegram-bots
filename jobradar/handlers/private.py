@@ -102,7 +102,9 @@ async def show_sources(message: Message, session: AsyncSession, t: Ru, access: A
 
 
 @router.message(Command("mail"))
-async def show_mail(message: Message, session: AsyncSession, t: Ru, mail: MailConfig) -> None:
+async def show_mail(
+    message: Message, session: AsyncSession, t: Ru, mail: MailConfig, radar: Radar
+) -> None:
     sub = await repo.get_subscriber(session, message.from_user.id)
     if sub is None:
         await message.answer(t.NOT_ALLOWED)
@@ -111,7 +113,10 @@ async def show_mail(message: Message, session: AsyncSession, t: Ru, mail: MailCo
         await message.answer(t.MAIL_OFF)
         return
     address = mail.personal(await repo.mail_token(session, sub))
-    await message.answer(t.MAIL.format(address=address), disable_web_page_preview=True)
+    text = t.MAIL.format(address=address)
+    if sites := radar.shared_sites(datetime.now(UTC)):
+        text += t.MAIL_SHARED.format(sites=", ".join(sites))
+    await message.answer(text, disable_web_page_preview=True)
 
 
 @router.message(Command("pro"))
@@ -158,6 +163,9 @@ async def status(
             budget=f"{monthly:.2f}",
             pros=await repo.paying_count(session, now),
         )
+        if radar.mail.enabled and radar.mail.senders:
+            shared = radar.shared_today()
+            text += t.STATUS_MAIL.format(letters=shared.letters, jobs=shared.jobs)
     await message.answer(text)
 
 

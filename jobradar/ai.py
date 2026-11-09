@@ -244,7 +244,9 @@ look for, in their own words. Give the keywords job posts for that work contain:
 titles and word stems in English, Ukrainian, Russian and Polish, plus tools that only this \
 work uses. Lowercase. Stems that catch word forms are good ("відеомонтаж" catches \
 "відеомонтажер"), but never a stem that also names other jobs: "монтаж" alone is also \
-construction installation, so use "видеомонтаж", "монтажер видео". No generic words that \
+construction installation, so use "видеомонтаж", "монтажер видео"; in Polish "montaż" and \
+"montażysta" alone are assembly work, so use "montaż wideo"; "animator" and "аніматор" \
+alone are also children's entertainers. No generic words that \
 many other jobs have ("manager", "remote", "designer" alone). 6 to 15 keywords. If the \
 text isn't a kind of work, return []."""
 
@@ -256,8 +258,8 @@ EXPAND_SCHEMA = {
 }
 
 
-EXTRACT = """You read a job alert email (from Upwork, LinkedIn, Work.ua or another site) that \
-a user forwarded to a job radar bot. List every job post in it: its title, the number of \
+EXTRACT = """You read a job alert email (from Upwork, LinkedIn, pracuj.pl or another site) \
+sent to a job radar bot. List every job post in it: its title, the number of \
 the link that opens that job (from the numbered links after the letter) and a short \
 description in the letter's own language (1-3 sentences: what the work is, pay, \
 conditions if given). Skip ads, settings, "see all jobs", unsubscribe and similar links. \
