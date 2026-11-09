@@ -180,6 +180,18 @@ powershell -ExecutionPolicy Bypass -File scripts\install-watchdog.ps1
 Every 5 minutes it starts Docker Desktop if needed, restarts it if the engine hangs, and brings back
 any stopped service, unless `logs/watchdog.pause` exists. Events go to `logs/watchdog.log`.
 
+Back up the data every night at 04:00 (a night missed while the PC was off runs once it is on):
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-backup.ps1
+```
+Every PostgreSQL database (`pg_dumpall`, gzipped) and a Redis snapshot go to `D:\Backups\daily`
+(run `scripts\backup.ps1 -Dest <folder>` for another place). Nothing old is deleted: a day takes a few
+dozen KB. Events go to `logs/backup.log`. To restore into an empty database volume:
+```powershell
+docker compose cp D:\Backups\daily\<date>_postgres.sql.gz postgres:/tmp/restore.sql.gz
+docker compose exec -T postgres sh -c 'gunzip -c /tmp/restore.sql.gz | psql -U $POSTGRES_USER -d postgres'
+```
+
 ### Tests and linting
 ```bash
 pytest
