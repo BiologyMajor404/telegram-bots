@@ -78,10 +78,12 @@ class LangMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
-async def set_profile_texts(bot: Bot, catalog: dict[str, Any]) -> None:
+async def set_profile_texts(
+    bot: Bot, catalog: dict[str, Any], locales: dict[str, list[str | None]] | None = None
+) -> None:
     """The texts Telegram shows before a user presses Start (description) and in the bot's
     profile (short description), in each user's language."""
-    for lang, codes in command_locales().items():
+    for lang, codes in (locales or command_locales()).items():
         t = catalog[lang]
         for code in codes:
             await bot.set_my_description(t.BOT_DESCRIPTION, language_code=code)

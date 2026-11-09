@@ -6,6 +6,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Fonts for pictures with text in any language: Noto has every script
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-noto-core fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 

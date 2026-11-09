@@ -10,3 +10,4 @@ docs
 logs
 assets
 scripts
+**/target

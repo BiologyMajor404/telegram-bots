@@ -68,10 +68,12 @@ async def set_commands(
     catalog: dict[str, Any],
     private: CommandsFor,
     group: CommandsFor | None = None,
+    locales: dict[str, list[str | None]] | None = None,
 ) -> None:
     """Command menus in each Telegram app language: `private` for private chats (and the
-    default), `group` for group chats if the bot works there."""
-    for lang, codes in command_locales().items():
+    default), `group` for group chats if the bot works there. `locales` is for bots with
+    languages of their own (see shared.i18n.command_locales)."""
+    for lang, codes in (locales or command_locales()).items():
         t = catalog[lang]
         for code in codes:
             await bot.set_my_commands(private(t), language_code=code)
