@@ -21,8 +21,10 @@ function Log($msg) {
 }
 
 function Test-Engine {
-    docker info --format '{{.ServerVersion}}' *> $null
-    return $LASTEXITCODE -eq 0
+    # When Docker Desktop is "unable to start" (its WSL machine stopped), `docker info` still
+    # exits 0, only with no server version: the engine is up only if a version comes back
+    $version = docker info --format '{{.ServerVersion}}' 2> $null
+    return ($LASTEXITCODE -eq 0) -and ("$version".Trim() -ne '')
 }
 
 function Wait-Engine($seconds) {
